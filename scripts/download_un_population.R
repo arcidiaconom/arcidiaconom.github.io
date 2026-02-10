@@ -5,11 +5,11 @@
 #
 # This script downloads total population data from the UN World Population
 # Prospects Data Portal API for:
-# - Location: World (global)
+# - Location: All countries/areas + World (238 locations)
 # - Scenario: Medium variant
 # - Sex: Both genders combined
 # - Time period: 1960-2050
-# - Output: CSV file
+# - Output: CSV file with country names, location IDs, years, and population
 #
 # Required packages: jsonlite, dplyr
 # Installation: install.packages(c("jsonlite", "dplyr"))
@@ -32,7 +32,8 @@ suppressPackageStartupMessages({
 BASE_URL <- "https://population.un.org/dataportalapi/api/v1"
 START_YEAR <- 1960
 END_YEAR <- 2050
-OUTPUT_FILE <- "un_population_world_1960_2050.csv"
+OUTPUT_FILE <- "un_population_all_countries_1960_2050.csv"
+BATCH_SIZE <- 30  # Number of locations to query per API call
 
 cat("Configuration:\n")
 cat(sprintf("  API Base URL: %s\n", BASE_URL))
@@ -86,39 +87,75 @@ find_indicator_id <- function(search_term = "Total Population") {
   return(indicator_id)
 }
 
-#' Find location ID for World
-#' @return Location ID for World
-find_world_location_id <- function() {
-  cat("Searching for World location...\n")
+#' Get all locations (individual countries + World)
+#' @return Data frame with location IDs and names
+get_all_locations <- function() {
+  cat("Fetching all available locations...\n")
 
   url <- paste0(BASE_URL, "/locations")
   data <- api_request(url)
 
-  # Find World
   locations <- data$data
-  world <- locations[locations$Name == "World", ]
 
-  if (nrow(world) == 0) {
-    stop("World location not found in API")
+  # Filter to include only:
+  # 1. Individual countries (LocTypeId == 4 typically represents countries)
+  # 2. World (Name == "World")
+  # Exclude regional aggregates and development groups
+
+  # Check what location type values exist
+  if ("LocTypeId" %in% names(locations)) {
+    # Include countries (LocTypeId == 4) and World
+    filtered_locations <- locations %>%
+      filter(LocTypeId == 4 | Name == "World")
+  } else if ("LocTypeName" %in% names(locations)) {
+    # Alternative: filter by type name
+    filtered_locations <- locations %>%
+      filter(grepl("Country", LocTypeName, ignore.case = TRUE) | Name == "World")
+  } else {
+    # Fallback: exclude known aggregates by name patterns
+    exclude_patterns <- c("Africa", "Asia", "Europe", "America", "Oceania",
+                         "developed", "developing", "income", "SDG")
+    filtered_locations <- locations %>%
+      filter(Name == "World" | !grepl(paste(exclude_patterns, collapse = "|"), Name, ignore.case = TRUE))
   }
 
-  location_id <- world$Id[1]
-  cat(sprintf("  Found: World (ID: %d)\n", location_id))
-  return(location_id)
+  cat(sprintf("  Found %d locations (countries + World)\n", nrow(filtered_locations)))
+
+  return(filtered_locations)
 }
 
-#' Download population data with pagination
+#' Split location IDs into batches for API calls
+#' @param location_ids Vector of location IDs
+#' @param batch_size Number of locations per batch (default: 30)
+#' @return List of location ID vectors
+batch_locations <- function(location_ids, batch_size = 30) {
+  num_batches <- ceiling(length(location_ids) / batch_size)
+
+  batches <- lapply(1:num_batches, function(i) {
+    start_idx <- (i - 1) * batch_size + 1
+    end_idx <- min(i * batch_size, length(location_ids))
+    location_ids[start_idx:end_idx]
+  })
+
+  return(batches)
+}
+
+#' Download population data with pagination (supports multiple locations)
 #' @param indicator_id Indicator ID
-#' @param location_id Location ID
+#' @param location_ids Vector of location IDs
 #' @param start_year Start year
 #' @param end_year End year
 #' @return Combined data frame with all results
-download_population_data <- function(indicator_id, location_id, start_year, end_year) {
-  cat(sprintf("\nDownloading data for years %d-%d...\n", start_year, end_year))
+download_population_data <- function(indicator_id, location_ids, start_year, end_year) {
+  # Create comma-separated location string for API
+  location_string <- paste(location_ids, collapse = ",")
 
-  # Construct initial URL
-  initial_url <- sprintf("%s/data/indicators/%d/locations/%d/start/%d/end/%d",
-                        BASE_URL, indicator_id, location_id, start_year, end_year)
+  cat(sprintf("  Downloading data for %d location(s), years %d-%d...\n",
+              length(location_ids), start_year, end_year))
+
+  # Construct initial URL with multiple locations
+  initial_url <- sprintf("%s/data/indicators/%d/locations/%s/start/%d/end/%d",
+                        BASE_URL, indicator_id, location_string, start_year, end_year)
 
   all_data <- list()
   next_url <- initial_url
@@ -176,19 +213,49 @@ indicator_id <- tryCatch({
   49  # Common ID for total population
 })
 
-location_id <- tryCatch({
-  find_world_location_id()
+# Get all locations (countries + World)
+all_locations <- tryCatch({
+  get_all_locations()
 }, error = function(e) {
-  cat("Warning: Could not auto-discover location ID. Using fallback ID 900.\n")
-  900  # Common ID for World
+  stop(sprintf("Failed to retrieve locations: %s", e$message))
 })
 
-# Step 2: Download data
+# Extract location IDs and create batches
+location_ids <- all_locations$Id
+location_batches <- batch_locations(location_ids, BATCH_SIZE)
+
+cat(sprintf("\nTotal locations: %d\n", length(location_ids)))
+cat(sprintf("Batches to process: %d (batch size: %d)\n", length(location_batches), BATCH_SIZE))
+
+# Step 2: Download data in batches
 cat("\n")
-cat("STEP 2: Data Download\n")
+cat("STEP 2: Data Download (Batch Processing)\n")
 cat(strrep("-", 60), "\n")
 
-raw_data <- download_population_data(indicator_id, location_id, START_YEAR, END_YEAR)
+all_batch_data <- list()
+
+for (batch_num in seq_along(location_batches)) {
+  cat(sprintf("\n[Batch %d of %d]\n", batch_num, length(location_batches)))
+
+  batch_data <- tryCatch({
+    download_population_data(indicator_id, location_batches[[batch_num]],
+                           START_YEAR, END_YEAR)
+  }, error = function(e) {
+    cat(sprintf("  ERROR in batch %d: %s\n", batch_num, e$message))
+    cat("  Skipping this batch and continuing...\n")
+    return(NULL)
+  })
+
+  if (!is.null(batch_data)) {
+    all_batch_data[[batch_num]] <- batch_data
+    cat(sprintf("  Batch %d complete: %d rows downloaded\n", batch_num, nrow(batch_data)))
+  }
+}
+
+# Combine all batch results
+cat("\nCombining all batch results...\n")
+raw_data <- bind_rows(all_batch_data)
+cat(sprintf("Total rows combined: %d\n", nrow(raw_data)))
 
 # Step 3: Filter and process data
 cat("\n")
@@ -240,6 +307,25 @@ if ("Sex" %in% available_cols) {
 }
 
 # Select and rename relevant columns
+# Identify the location columns
+location_name_col <- NULL
+if ("Location" %in% available_cols) {
+  location_name_col <- "Location"
+} else if ("LocationLabel" %in% available_cols) {
+  location_name_col <- "LocationLabel"
+} else if ("LocName" %in% available_cols) {
+  location_name_col <- "LocName"
+}
+
+location_id_col <- NULL
+if ("LocID" %in% available_cols) {
+  location_id_col <- "LocID"
+} else if ("LocationId" %in% available_cols) {
+  location_id_col <- "LocationId"
+} else if ("Location_Id" %in% available_cols) {
+  location_id_col <- "Location_Id"
+}
+
 # Identify the year column (could be TimeLabel, Year, Time, etc.)
 year_col <- NULL
 if ("TimeLabel" %in% available_cols) {
@@ -258,17 +344,26 @@ if ("Value" %in% available_cols) {
   value_col <- "Population"
 }
 
-if (is.null(year_col) || is.null(value_col)) {
-  stop("Could not identify year or value columns in the data")
+if (is.null(location_name_col) || is.null(location_id_col) ||
+    is.null(year_col) || is.null(value_col)) {
+  cat("Warning: Could not identify all required columns\n")
+  cat(sprintf("Location name col: %s\n", ifelse(is.null(location_name_col), "NOT FOUND", location_name_col)))
+  cat(sprintf("Location ID col: %s\n", ifelse(is.null(location_id_col), "NOT FOUND", location_id_col)))
+  cat(sprintf("Year col: %s\n", ifelse(is.null(year_col), "NOT FOUND", year_col)))
+  cat(sprintf("Value col: %s\n", ifelse(is.null(value_col), "NOT FOUND", value_col)))
+  stop("Could not identify required columns in the data")
 }
 
-# Create clean dataset
+# Create clean dataset with location information
 clean_data <- filtered_data %>%
-  select(Year = all_of(year_col),
+  select(Country = all_of(location_name_col),
+         LocationId = all_of(location_id_col),
+         Year = all_of(year_col),
          Population = all_of(value_col)) %>%
   mutate(Year = as.integer(Year),
+         LocationId = as.integer(LocationId),
          Population = as.numeric(Population)) %>%
-  arrange(Year) %>%
+  arrange(Country, Year) %>%
   distinct()
 
 cat(sprintf("\nFinal dataset: %d rows\n", nrow(clean_data)))
@@ -277,6 +372,10 @@ cat(sprintf("\nFinal dataset: %d rows\n", nrow(clean_data)))
 cat("\n")
 cat("STEP 4: Data Validation\n")
 cat(strrep("-", 60), "\n")
+
+# Check number of countries
+num_countries <- length(unique(clean_data$Country))
+cat(sprintf("Number of unique countries/locations: %d\n", num_countries))
 
 # Check year range
 year_range <- range(clean_data$Year)
@@ -290,9 +389,21 @@ cat(sprintf("Missing values: %d\n", missing_count))
 negative_count <- sum(clean_data$Population < 0, na.rm = TRUE)
 cat(sprintf("Negative values: %d\n", negative_count))
 
+# Check for duplicate country-year combinations
+duplicates <- clean_data %>%
+  group_by(Country, Year) %>%
+  filter(n() > 1) %>%
+  nrow()
+cat(sprintf("Duplicate country-year combinations: %d\n", duplicates))
+
 # Display summary statistics
 cat("\nPopulation statistics (in thousands):\n")
 print(summary(clean_data$Population))
+
+# Display sample countries
+sample_countries <- unique(clean_data$Country)[1:min(10, num_countries)]
+cat("\nSample countries included:\n")
+cat(paste("  -", sample_countries, collapse = "\n"), "\n")
 
 # Display first and last few rows
 cat("\nFirst 5 rows:\n")
@@ -323,6 +434,13 @@ cat(paste0(strrep("=", 61), "\n"))
 cat("Download Complete!\n")
 cat(paste0(strrep("=", 61), "\n"))
 cat(sprintf("Output file: %s\n", OUTPUT_FILE))
+cat(sprintf("Total countries/locations: %d\n", num_countries))
 cat(sprintf("Total rows: %d\n", nrow(clean_data)))
 cat(sprintf("Year range: %d - %d\n", year_range[1], year_range[2]))
+cat(sprintf("File size: %.2f MB\n", file.info(OUTPUT_FILE)$size / (1024 * 1024)))
+cat("\nData structure:\n")
+cat("  - Country: Country/area name\n")
+cat("  - LocationId: UN location identifier\n")
+cat("  - Year: 1960-2050\n")
+cat("  - Population: Total population (thousands)\n")
 cat("\nYou can now open the CSV file in Excel, R, or any spreadsheet application.\n")
