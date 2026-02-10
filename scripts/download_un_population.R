@@ -169,13 +169,29 @@ cat(sprintf("\nCompleted: %d/%d locations\n", length(all_data), total))
 cat("\nStep 4: Processing data...\n")
 raw_data <- bind_rows(all_data)
 
+# Debug: Print actual column names
+cat("\nActual column names in API response:\n")
+cat(paste(names(raw_data), collapse = ", "), "\n\n")
+
+# Find the correct column names (case-insensitive search)
+variant_col <- names(raw_data)[grep("variant", names(raw_data), ignore.case = TRUE)[1]]
+sex_col <- names(raw_data)[grep("sex", names(raw_data), ignore.case = TRUE)[1]]
+location_col <- names(raw_data)[grep("^location$|^loc$", names(raw_data), ignore.case = TRUE)[1]]
+locid_col <- names(raw_data)[grep("locid|loc.*id", names(raw_data), ignore.case = TRUE)[1]]
+time_col <- names(raw_data)[grep("time|year", names(raw_data), ignore.case = TRUE)[1]]
+value_col <- names(raw_data)[grep("^value$|^population$", names(raw_data), ignore.case = TRUE)[1]]
+
+cat(sprintf("Using columns: %s, %s, %s, %s, %s, %s\n\n",
+            variant_col, sex_col, location_col, locid_col, time_col, value_col))
+
+# Filter using the actual column names
 clean_data <- raw_data %>%
-  filter(variantId == 2, sexId == 3) %>%  # lowercase: variantId, sexId
+  filter(.data[[variant_col]] == 2, .data[[sex_col]] == 3) %>%
   select(
-    Country = location,      # lowercase
-    LocationId = locId,      # lowercase
-    Year = timeLabel,        # lowercase
-    Population = value       # lowercase
+    Country = all_of(location_col),
+    LocationId = all_of(locid_col),
+    Year = all_of(time_col),
+    Population = all_of(value_col)
   ) %>%
   mutate(
     Year = as.integer(Year),
