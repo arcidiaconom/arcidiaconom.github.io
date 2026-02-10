@@ -11,8 +11,8 @@
 # - Time period: 1960-2050
 # - Output: CSV file
 #
-# Required packages: httr, jsonlite, dplyr
-# Installation: install.packages(c("httr", "jsonlite", "dplyr"))
+# Required packages: jsonlite, dplyr
+# Installation: install.packages(c("jsonlite", "dplyr"))
 #
 # Usage: Rscript download_un_population.R
 #
@@ -24,7 +24,6 @@
 # Load required packages
 cat("Loading required packages...\n")
 suppressPackageStartupMessages({
-  library(httr)
   library(jsonlite)
   library(dplyr)
 })
@@ -49,16 +48,9 @@ cat(sprintf("  Output File: %s\n\n", OUTPUT_FILE))
 #' @return Parsed JSON response
 api_request <- function(url) {
   tryCatch({
-    response <- GET(url)
-
-    # Check HTTP status
-    if (status_code(response) != 200) {
-      stop(sprintf("API request failed with status code: %d", status_code(response)))
-    }
-
-    # Parse JSON
-    content_text <- content(response, as = "text", encoding = "UTF-8")
-    parsed_data <- fromJSON(content_text, flatten = TRUE)
+    # Use fromJSON directly - it handles HTTP requests internally
+    # This approach works better with the UN API than using httr::GET()
+    parsed_data <- fromJSON(url, flatten = TRUE)
 
     return(parsed_data)
   }, error = function(e) {
