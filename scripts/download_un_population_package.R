@@ -70,41 +70,54 @@ END_YEAR <- 2050
 
 cat("Step 2: Loading population data from wpp2024 package...\n")
 
-# Load the annual population data (both sexes combined, in thousands)
-data(popAge1dt, package = "wpp2024")
+# Load BOTH historical and projection data
+# - popAge1dt: Historical data 1949-2023
+# - popprojAge1dt: Projections 2024-2100 (with scenarios)
 
-cat(sprintf("  Loaded: %s rows, %d columns\n", format(nrow(popAge1dt), big.mark = ","), ncol(popAge1dt)))
+data(popAge1dt, package = "wpp2024")       # Historical
+data(popprojAge1dt, package = "wpp2024")   # Projections
 
-# Show column names
-cat("\n  Column names:\n")
-cat(sprintf("    %s\n\n", paste(names(popAge1dt), collapse = ", ")))
+cat(sprintf("  Historical data: %s rows\n", format(nrow(popAge1dt), big.mark = ",")))
+cat(sprintf("  Projection data: %s rows\n", format(nrow(popprojAge1dt), big.mark = ",")))
 
 # =============================================================================
 # STEP 3: PROCESS AND FILTER DATA
 # =============================================================================
 
-cat("Step 3: Processing data...\n")
+cat("\nStep 3: Processing data...\n")
 
-# Filter and aggregate data:
-# - Year range: 1960-2050
-# - Medium variant (scenario == 2)
-# - Sum across all ages to get total population
-# - Filter to countries only (exclude regional aggregates)
+# PART 3A: Process historical data (1960-2023)
+cat("  3a. Processing historical data (1960-2023)...\n")
 
-clean_data <- popAge1dt %>%
-  filter(
-    # Year range
-    year >= START_YEAR & year <= END_YEAR,
-    # Medium variant only (scenario 2)
-    scenario == 2
-  ) %>%
-  # Sum population across all ages for each country-year
+historical_data <- popAge1dt %>%
+  filter(year >= START_YEAR & year <= 2023) %>%
   group_by(country_code, name, year) %>%
   summarise(
     Population = sum(popM + popF, na.rm = TRUE),
     .groups = "drop"
-  ) %>%
-  # Rename columns for consistency
+  )
+
+cat(sprintf("      Historical: %s rows\n", format(nrow(historical_data), big.mark = ",")))
+
+# PART 3B: Process projection data (2024-2050)
+# Use MEDIUM variant (the default/median projection)
+cat("  3b. Processing projections (2024-2050)...\n")
+
+projection_data <- popprojAge1dt %>%
+  filter(year >= 2024 & year <= END_YEAR) %>%
+  group_by(country_code, name, year) %>%
+  summarise(
+    # Use median/medium projection (pop column = medium variant)
+    Population = sum(pop, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+cat(sprintf("      Projections: %s rows\n", format(nrow(projection_data), big.mark = ",")))
+
+# PART 3C: Combine historical + projections
+cat("  3c. Combining historical and projection data...\n")
+
+clean_data <- bind_rows(historical_data, projection_data) %>%
   rename(
     LocationId = country_code,
     Country = name,
@@ -117,7 +130,7 @@ clean_data <- popAge1dt %>%
   ) %>%
   arrange(Country, Year)
 
-cat(sprintf("  Processed: %s rows\n", format(nrow(clean_data), big.mark = ",")))
+cat(sprintf("  ✓ Combined: %s rows\n", format(nrow(clean_data), big.mark = ",")))
 cat(sprintf("  Countries: %d\n", length(unique(clean_data$Country))))
 cat(sprintf("  Year range: %d-%d\n\n", min(clean_data$Year), max(clean_data$Year)))
 
