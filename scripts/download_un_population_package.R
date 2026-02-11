@@ -95,7 +95,8 @@ historical_data <- popAge1dt %>%
   summarise(
     Population = sum(popM + popF, na.rm = TRUE),
     .groups = "drop"
-  )
+  ) %>%
+  mutate(year = as.integer(year))  # Ensure year is integer
 
 cat(sprintf("      Historical: %s rows\n", format(nrow(historical_data), big.mark = ",")))
 
@@ -104,13 +105,14 @@ cat(sprintf("      Historical: %s rows\n", format(nrow(historical_data), big.mar
 cat("  3b. Processing projections (2024-2050)...\n")
 
 projection_data <- popprojAge1dt %>%
-  filter(year >= 2024 & year <= END_YEAR) %>%
+  filter(as.integer(year) >= 2024 & as.integer(year) <= END_YEAR) %>%
   group_by(country_code, name, year) %>%
   summarise(
     # Use median/medium projection (pop column = medium variant)
     Population = sum(pop, na.rm = TRUE),
     .groups = "drop"
-  )
+  ) %>%
+  mutate(year = as.integer(year))  # Convert year to integer
 
 cat(sprintf("      Projections: %s rows\n", format(nrow(projection_data), big.mark = ",")))
 
