@@ -1,0 +1,7 @@
+# UN Population Data - Downloaded CSV files
+un_population_*.csv
+
+# R specific
+.Rhistory
+.RData
+.Rproj.user
