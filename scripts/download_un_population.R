@@ -39,6 +39,19 @@ cat("Source: WPP2024 Data Portal API\n")
 cat("===========================================================\n\n")
 
 # =============================================================================
+# HELPER FUNCTION
+# =============================================================================
+
+# Dynamically detect column names (handle different API response structures)
+find_column <- function(df, patterns) {
+  for (pattern in patterns) {
+    matches <- grep(pattern, names(df), ignore.case = TRUE, value = TRUE)
+    if (length(matches) > 0) return(matches[1])
+  }
+  return(NA)
+}
+
+# =============================================================================
 # STEP 1: FETCH LOCATIONS FROM API
 # =============================================================================
 
@@ -54,7 +67,11 @@ locations_data <- tryCatch({
   stop("Failed to fetch location data from API. Please check your internet connection.")
 })
 
-cat(sprintf("  Loaded: %d locations\n\n", nrow(locations_data)))
+cat(sprintf("  Loaded: %d locations\n", nrow(locations_data)))
+
+# Show column names for debugging
+cat("\n  Column names in locations data:\n")
+cat(sprintf("    %s\n\n", paste(names(locations_data), collapse = ", ")))
 
 # =============================================================================
 # STEP 2: FILTER TO INDIVIDUAL COUNTRIES
@@ -62,13 +79,35 @@ cat(sprintf("  Loaded: %d locations\n\n", nrow(locations_data)))
 
 cat("Step 2: Filtering to individual countries...\n")
 
-# Exclude regional aggregates - keep only Type = 4 (individual countries) + World (Type = 2, ID = 900)
-countries <- locations_data %>%
-  filter(LocTypID == 4 | (LocTypID == 2 & Id == 900)) %>%
-  select(Id, Name) %>%
-  arrange(Name)
+# Dynamically detect column names
+id_col <- find_column(locations_data, c("^id$", "locid", "locationid"))
+name_col <- find_column(locations_data, c("name", "location"))
+type_col <- find_column(locations_data, c("loctypeid", "typeid", "type"))
 
-cat(sprintf("  Selected: %d countries + World\n", nrow(countries)))
+cat(sprintf("  Using columns: Id='%s', Name='%s', Type='%s'\n",
+            ifelse(is.na(id_col), "NOT FOUND", id_col),
+            ifelse(is.na(name_col), "NOT FOUND", name_col),
+            ifelse(is.na(type_col), "NOT FOUND", type_col)))
+
+if (any(is.na(c(id_col, name_col)))) {
+  stop("ERROR: Could not find required columns in locations data.")
+}
+
+# Exclude regional aggregates - keep only Type = 4 (individual countries) + World (Type = 2, ID = 900)
+if (!is.na(type_col)) {
+  countries <- locations_data %>%
+    filter(.data[[type_col]] == 4 | (.data[[type_col]] == 2 & .data[[id_col]] == 900)) %>%
+    select(Id = all_of(id_col), Name = all_of(name_col)) %>%
+    arrange(Name)
+} else {
+  # If type column not found, just get all locations (not ideal but will work)
+  cat("  WARNING: Location type column not found, using all locations\n")
+  countries <- locations_data %>%
+    select(Id = all_of(id_col), Name = all_of(name_col)) %>%
+    arrange(Name)
+}
+
+cat(sprintf("  Selected: %d locations\n", nrow(countries)))
 cat(sprintf("  Location IDs range: %d - %d\n\n", min(countries$Id), max(countries$Id)))
 
 # =============================================================================
@@ -115,14 +154,6 @@ cat("\n")
 cat("Step 4: Processing data...\n")
 
 # Dynamically detect column names (handle different API response structures)
-find_column <- function(df, patterns) {
-  for (pattern in patterns) {
-    matches <- grep(pattern, names(df), ignore.case = TRUE, value = TRUE)
-    if (length(matches) > 0) return(matches[1])
-  }
-  return(NA)
-}
-
 variant_col <- find_column(raw_data, c("variant", "variantlabel", "variantid"))
 location_col <- find_column(raw_data, c("location", "locarea", "name"))
 locid_col <- find_column(raw_data, c("locid", "locationid", "id"))
