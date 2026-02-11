@@ -93,34 +93,20 @@ if (any(is.na(c(id_col, name_col)))) {
   stop("ERROR: Could not find required columns in locations data.")
 }
 
-# Filter to individual countries using ISO3 codes
-# Individual countries have 3-letter ISO3 codes, regional aggregates don't
-# Also include "World" (ID = 900)
-if (!is.na(iso3_col)) {
-  # Check how many have valid ISO3 codes
-  has_iso3 <- locations_data %>%
-    filter(!is.na(.data[[iso3_col]]) &
-           .data[[iso3_col]] != "" &
-           nchar(as.character(.data[[iso3_col]])) == 3)
+# Filter to individual countries using Location ID ranges
+# Individual countries have IDs in ranges:
+#   - 4-894: Standard countries and territories
+#   - 900: World (include this)
+# Regional aggregates and special groupings have IDs >= 901
+countries <- locations_data %>%
+  filter(
+    (.data[[id_col]] >= 4 & .data[[id_col]] < 900) |
+    .data[[id_col]] == 900
+  ) %>%
+  select(Id = all_of(id_col), Name = all_of(name_col)) %>%
+  arrange(Name)
 
-  cat(sprintf("  Found %d locations with 3-letter ISO3 codes\n", nrow(has_iso3)))
-
-  # Filter to valid ISO3 codes (3 letters) + World
-  countries <- locations_data %>%
-    filter(
-      (!is.na(.data[[iso3_col]]) &
-       .data[[iso3_col]] != "" &
-       nchar(as.character(.data[[iso3_col]])) == 3) |
-      .data[[id_col]] == 900
-    ) %>%
-    select(Id = all_of(id_col), Name = all_of(name_col), Iso3 = all_of(iso3_col)) %>%
-    arrange(Name)
-
-  cat(sprintf("  Filtered using ISO3 codes\n"))
-} else {
-  cat("  WARNING: ISO3 column not found, cannot filter regional aggregates\n")
-  stop("ERROR: Cannot proceed without ISO3 codes for filtering")
-}
+cat(sprintf("  Filtered by ID range (4-894 + World=900)\n"))
 
 cat(sprintf("  Selected: %d locations\n", nrow(countries)))
 cat(sprintf("  Location IDs range: %d - %d\n\n", min(countries$Id), max(countries$Id)))
@@ -132,24 +118,24 @@ cat(sprintf("  Location IDs range: %d - %d\n\n", min(countries$Id), max(countrie
 cat("Step 3: Fetching population data from UN API...\n")
 cat("  This may take a moment...\n")
 
-# Split countries into batches to avoid URL length limits
-# API URLs have length limits, so we batch requests
-# Also helps avoid rate limiting issues
-BATCH_SIZE <- 20
-num_batches <- ceiling(nrow(countries) / BATCH_SIZE)
-cat(sprintf("  Fetching data in %d batch(es) of up to %d countries each\n", num_batches, BATCH_SIZE))
+# Fetch data one country at a time to avoid 401 errors
+# The API seems to have issues with batch requests
+BATCH_SIZE <- 1
+num_batches <- nrow(countries)
+cat(sprintf("  Fetching data for %d locations (one at a time)...\n", num_batches))
 
 all_data <- list()
 
 for (i in 1:num_batches) {
-  start_idx <- (i - 1) * BATCH_SIZE + 1
-  end_idx <- min(i * BATCH_SIZE, nrow(countries))
-  batch_countries <- countries[start_idx:end_idx, ]
+  country <- countries[i, ]
 
-  cat(sprintf("  Batch %d/%d: Fetching %d locations... ", i, num_batches, nrow(batch_countries)))
+  # Show progress every 10 countries
+  if (i %% 10 == 1 || i == num_batches) {
+    cat(sprintf("  Progress: %d/%d - %s... ", i, num_batches, country$Name))
+  }
 
-  # Create location ID list for this batch
-  location_ids <- paste(batch_countries$Id, collapse = ",")
+  # Create location ID for this country
+  location_ids <- country$Id
 
   # Build API URL (note the trailing slash before query params)
   data_url <- paste0(
@@ -164,22 +150,27 @@ for (i in 1:num_batches) {
   batch_data <- tryCatch({
     read.csv(data_url, sep = "|", skip = 1, stringsAsFactors = FALSE, check.names = FALSE)
   }, error = function(e) {
-    cat(sprintf("\n  ERROR: Failed to fetch data for batch %d\n", i))
-    cat(sprintf("  %s\n", e$message))
+    if (i %% 10 == 1 || i == num_batches) {
+      cat(sprintf("✗\n"))
+    }
+    cat(sprintf("  WARNING: Failed to fetch %s (ID=%d): %s\n", country$Name, country$Id, e$message))
     return(NULL)
   })
 
-  if (!is.null(batch_data)) {
+  if (!is.null(batch_data) && nrow(batch_data) > 0) {
     all_data[[i]] <- batch_data
-    cat(sprintf("✓ (%s rows)\n", format(nrow(batch_data), big.mark = ",")))
+    if (i %% 10 == 1 || i == num_batches) {
+      cat(sprintf("✓\n"))
+    }
   } else {
-    cat("✗ Failed\n")
-    stop(sprintf("Failed to fetch batch %d", i))
+    if (i %% 10 == 1 || i == num_batches) {
+      cat(sprintf("✗ (no data)\n"))
+    }
   }
 
   # Small delay between requests to be respectful to the API
   if (i < num_batches) {
-    Sys.sleep(0.5)
+    Sys.sleep(0.2)
   }
 }
 
