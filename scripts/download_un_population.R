@@ -82,29 +82,33 @@ cat("Step 2: Filtering to individual countries...\n")
 # Dynamically detect column names
 id_col <- find_column(locations_data, c("^id$", "locid", "locationid"))
 name_col <- find_column(locations_data, c("name", "location"))
-type_col <- find_column(locations_data, c("loctypeid", "typeid", "type"))
+iso3_col <- find_column(locations_data, c("iso3", "isocode3"))
 
-cat(sprintf("  Using columns: Id='%s', Name='%s', Type='%s'\n",
+cat(sprintf("  Using columns: Id='%s', Name='%s', Iso3='%s'\n",
             ifelse(is.na(id_col), "NOT FOUND", id_col),
             ifelse(is.na(name_col), "NOT FOUND", name_col),
-            ifelse(is.na(type_col), "NOT FOUND", type_col)))
+            ifelse(is.na(iso3_col), "NOT FOUND", iso3_col)))
 
 if (any(is.na(c(id_col, name_col)))) {
   stop("ERROR: Could not find required columns in locations data.")
 }
 
-# Exclude regional aggregates - keep only Type = 4 (individual countries) + World (Type = 2, ID = 900)
-if (!is.na(type_col)) {
+# Filter to individual countries using ISO3 codes
+# Individual countries have ISO3 codes, regional aggregates typically don't
+# Also include "World" (ID = 900) which has ISO3 = "WORLD"
+if (!is.na(iso3_col)) {
   countries <- locations_data %>%
-    filter(.data[[type_col]] == 4 | (.data[[type_col]] == 2 & .data[[id_col]] == 900)) %>%
+    filter(
+      (!is.na(.data[[iso3_col]]) & .data[[iso3_col]] != "") |
+      .data[[id_col]] == 900
+    ) %>%
     select(Id = all_of(id_col), Name = all_of(name_col)) %>%
     arrange(Name)
+
+  cat(sprintf("  Filtered using ISO3 codes\n"))
 } else {
-  # If type column not found, just get all locations (not ideal but will work)
-  cat("  WARNING: Location type column not found, using all locations\n")
-  countries <- locations_data %>%
-    select(Id = all_of(id_col), Name = all_of(name_col)) %>%
-    arrange(Name)
+  cat("  WARNING: ISO3 column not found, cannot filter regional aggregates\n")
+  stop("ERROR: Cannot proceed without ISO3 codes for filtering")
 }
 
 cat(sprintf("  Selected: %d locations\n", nrow(countries)))
@@ -117,30 +121,61 @@ cat(sprintf("  Location IDs range: %d - %d\n\n", min(countries$Id), max(countrie
 cat("Step 3: Fetching population data from UN API...\n")
 cat("  This may take a moment...\n")
 
-# Create location ID list (API accepts comma-separated IDs)
-location_ids <- paste(countries$Id, collapse = ",")
+# Split countries into batches to avoid URL length limits
+# API URLs have length limits, so we batch requests
+BATCH_SIZE <- 50
+num_batches <- ceiling(nrow(countries) / BATCH_SIZE)
+cat(sprintf("  Fetching data in %d batch(es) of up to %d countries each\n", num_batches, BATCH_SIZE))
 
-# Build API URL for population data (Indicator 49 = Total Population, Both Sexes)
-# The API defaults to medium variant and both sexes for indicator 49
-data_url <- paste0(
-  API_BASE_URL,
-  "/data/indicators/", INDICATOR_ID,
-  "/locations/", location_ids,
-  "/start/", START_YEAR,
-  "/end/", END_YEAR,
-  "?format=csv"
-)
+all_data <- list()
 
-raw_data <- tryCatch({
-  # API CSV files use pipe separator and have a header line to skip
-  read.csv(data_url, sep = "|", skip = 1, stringsAsFactors = FALSE, check.names = FALSE)
-}, error = function(e) {
-  cat(sprintf("  ERROR: Failed to fetch population data\n"))
-  cat(sprintf("  %s\n", e$message))
-  stop("Failed to fetch population data from API. Please check your internet connection.")
-})
+for (i in 1:num_batches) {
+  start_idx <- (i - 1) * BATCH_SIZE + 1
+  end_idx <- min(i * BATCH_SIZE, nrow(countries))
+  batch_countries <- countries[start_idx:end_idx, ]
 
-cat(sprintf("  Loaded: %s rows, %d columns\n", format(nrow(raw_data), big.mark = ","), ncol(raw_data)))
+  cat(sprintf("  Batch %d/%d: Fetching %d locations... ", i, num_batches, nrow(batch_countries)))
+
+  # Create location ID list for this batch
+  location_ids <- paste(batch_countries$Id, collapse = ",")
+
+  # Build API URL
+  data_url <- paste0(
+    API_BASE_URL,
+    "/data/indicators/", INDICATOR_ID,
+    "/locations/", location_ids,
+    "/start/", START_YEAR,
+    "/end/", END_YEAR,
+    "?format=csv"
+  )
+
+  batch_data <- tryCatch({
+    read.csv(data_url, sep = "|", skip = 1, stringsAsFactors = FALSE, check.names = FALSE)
+  }, error = function(e) {
+    cat(sprintf("\n  ERROR: Failed to fetch data for batch %d\n", i))
+    cat(sprintf("  %s\n", e$message))
+    return(NULL)
+  })
+
+  if (!is.null(batch_data)) {
+    all_data[[i]] <- batch_data
+    cat(sprintf("✓ (%s rows)\n", format(nrow(batch_data), big.mark = ",")))
+  } else {
+    cat("✗ Failed\n")
+    stop(sprintf("Failed to fetch batch %d", i))
+  }
+
+  # Small delay between requests to be respectful to the API
+  if (i < num_batches) {
+    Sys.sleep(0.5)
+  }
+}
+
+# Combine all batches
+cat("\n  Combining batches...\n")
+raw_data <- bind_rows(all_data)
+
+cat(sprintf("  Total loaded: %s rows, %d columns\n", format(nrow(raw_data), big.mark = ","), ncol(raw_data)))
 
 # Show column names for debugging
 cat("\n  Column names in API response:\n")
