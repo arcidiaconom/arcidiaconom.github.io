@@ -18,13 +18,8 @@
 #
 # Usage: Rscript download_un_population_direct.R
 #
-# NOTE: This script downloads a 1.4MB compressed file from population.un.org
-# If the download fails due to network restrictions, you'll need to:
-# 1. Download the file manually from:
-#    https://population.un.org/wpp/Download/Files/1_Indicator%20(Standard)/CSV_FILES/WPP2024_TotalPopulationBySex.zip
-# 2. Extract WPP2024_TotalPopulationBySex.csv
-# 3. Place it in the same directory as this script
-# 4. Run the script again
+# NOTE: This script downloads a ~3MB CSV file from population.un.org
+# The download is fully automatic - no manual steps required!
 #
 
 # =============================================================================
@@ -36,8 +31,7 @@ suppressPackageStartupMessages({
 })
 
 # Configuration
-DATA_URL <- "https://population.un.org/wpp/Download/Files/1_Indicator%20(Standard)/CSV_FILES/WPP2024_TotalPopulationBySex.zip"
-ZIP_FILE <- "WPP2024_TotalPopulationBySex.zip"
+DATA_URL <- "https://population.un.org/wpp/Download/Files/1_Indicator%20%28Standard%29/CSV_FILES/WPP2024_TotalPopulationBySex.csv"
 CSV_FILE <- "WPP2024_TotalPopulationBySex.csv"
 OUTPUT_FILE <- "un_population_all_countries_1960_2050.csv"
 START_YEAR <- 1960
@@ -61,11 +55,11 @@ if (file.exists(CSV_FILE)) {
   cat(sprintf("  File not found locally, attempting download...\n"))
   cat(sprintf("  URL: %s\n", DATA_URL))
 
-  # Try to download the ZIP file
+  # Try to download the CSV file directly
   download_result <- tryCatch({
     download.file(
       url = DATA_URL,
-      destfile = ZIP_FILE,
+      destfile = CSV_FILE,
       method = "auto",
       quiet = FALSE,
       mode = "wb"
@@ -76,20 +70,8 @@ if (file.exists(CSV_FILE)) {
     FALSE
   })
 
-  if (download_result && file.exists(ZIP_FILE)) {
-    cat(sprintf("  ✓ Download complete: %s (%.1f MB)\n", ZIP_FILE, file.info(ZIP_FILE)$size / 1024^2))
-
-    # Extract the CSV file
-    cat("  Extracting CSV file...\n")
-    unzip(ZIP_FILE, exdir = ".", overwrite = TRUE)
-
-    if (file.exists(CSV_FILE)) {
-      cat(sprintf("  ✓ Extracted: %s\n\n", CSV_FILE))
-      # Clean up ZIP file
-      file.remove(ZIP_FILE)
-    } else {
-      stop("ERROR: Failed to extract CSV file from ZIP archive")
-    }
+  if (download_result && file.exists(CSV_FILE)) {
+    cat(sprintf("  ✓ Download complete: %s (%.1f MB)\n\n", CSV_FILE, file.info(CSV_FILE)$size / 1024^2))
   } else {
     cat("\n===========================================================\n")
     cat("MANUAL DOWNLOAD REQUIRED\n")
@@ -98,8 +80,8 @@ if (file.exists(CSV_FILE)) {
     cat("Please download the file manually:\n\n")
     cat("1. Go to: https://population.un.org/wpp/downloads\n")
     cat("2. Navigate to: Standard Projections > CSV format\n")
-    cat("3. Download: WPP2024_TotalPopulationBySex.zip\n")
-    cat("4. Extract the CSV file to this directory\n")
+    cat("3. Download: WPP2024_TotalPopulationBySex.csv\n")
+    cat("4. Place the CSV file in this directory\n")
     cat("5. Run this script again\n\n")
     cat("Or download directly:\n")
     cat(sprintf("   %s\n\n", DATA_URL))
