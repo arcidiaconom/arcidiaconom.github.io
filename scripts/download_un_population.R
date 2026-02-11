@@ -94,15 +94,26 @@ if (any(is.na(c(id_col, name_col)))) {
 }
 
 # Filter to individual countries using ISO3 codes
-# Individual countries have ISO3 codes, regional aggregates typically don't
-# Also include "World" (ID = 900) which has ISO3 = "WORLD"
+# Individual countries have 3-letter ISO3 codes, regional aggregates don't
+# Also include "World" (ID = 900)
 if (!is.na(iso3_col)) {
+  # Check how many have valid ISO3 codes
+  has_iso3 <- locations_data %>%
+    filter(!is.na(.data[[iso3_col]]) &
+           .data[[iso3_col]] != "" &
+           nchar(as.character(.data[[iso3_col]])) == 3)
+
+  cat(sprintf("  Found %d locations with 3-letter ISO3 codes\n", nrow(has_iso3)))
+
+  # Filter to valid ISO3 codes (3 letters) + World
   countries <- locations_data %>%
     filter(
-      (!is.na(.data[[iso3_col]]) & .data[[iso3_col]] != "") |
+      (!is.na(.data[[iso3_col]]) &
+       .data[[iso3_col]] != "" &
+       nchar(as.character(.data[[iso3_col]])) == 3) |
       .data[[id_col]] == 900
     ) %>%
-    select(Id = all_of(id_col), Name = all_of(name_col)) %>%
+    select(Id = all_of(id_col), Name = all_of(name_col), Iso3 = all_of(iso3_col)) %>%
     arrange(Name)
 
   cat(sprintf("  Filtered using ISO3 codes\n"))
@@ -123,7 +134,8 @@ cat("  This may take a moment...\n")
 
 # Split countries into batches to avoid URL length limits
 # API URLs have length limits, so we batch requests
-BATCH_SIZE <- 50
+# Also helps avoid rate limiting issues
+BATCH_SIZE <- 20
 num_batches <- ceiling(nrow(countries) / BATCH_SIZE)
 cat(sprintf("  Fetching data in %d batch(es) of up to %d countries each\n", num_batches, BATCH_SIZE))
 
@@ -139,14 +151,14 @@ for (i in 1:num_batches) {
   # Create location ID list for this batch
   location_ids <- paste(batch_countries$Id, collapse = ",")
 
-  # Build API URL
+  # Build API URL (note the trailing slash before query params)
   data_url <- paste0(
     API_BASE_URL,
     "/data/indicators/", INDICATOR_ID,
     "/locations/", location_ids,
     "/start/", START_YEAR,
     "/end/", END_YEAR,
-    "?format=csv"
+    "/?format=csv"
   )
 
   batch_data <- tryCatch({
