@@ -16,7 +16,7 @@
       <output_dir>/population_projections_2050.dta
 
   Requirements:
-      Stata 14+ (uses copy for URL downloads and tempfiles)
+      Stata 14+
 ==============================================================================*/
 
 clear all
@@ -45,11 +45,9 @@ local outdta  "`outdir'/population_projections_2050.dta"
 *-------------------------------------------------------------------------------
 * Define age groups and gender codes
 *-------------------------------------------------------------------------------
-* Age group codes and labels
 local age_codes   `" "0004" "0509" "1014" "1519" "2024" "2529" "3034" "3539" "4044" "4549" "5054" "5559" "6064" "6569" "7074" "7579" "80UP" "'
 local age_labels  `" "0-4" "5-9" "10-14" "15-19" "20-24" "25-29" "30-34" "35-39" "40-44" "45-49" "50-54" "55-59" "60-64" "65-69" "70-74" "75-79" "80+" "'
 
-* Gender codes and labels
 local gender_codes  `" "MA" "FE" "'
 local gender_labels `" "Male" "Female" "'
 
@@ -74,8 +72,8 @@ foreach acode of local age_codes {
         local indicator "SP.POP.`acode'.`gcode'"
         local n_indicators = `n_indicators' + 1
 
-        local indicators       `"`indicators' "`indicator'""'
-        local ind_age_labels   `"`ind_age_labels' "`alabel'""'
+        local indicators        `"`indicators' "`indicator'""'
+        local ind_age_labels    `"`ind_age_labels' "`alabel'""'
         local ind_gender_labels `"`ind_gender_labels' "`glabel'""'
     }
 }
@@ -85,7 +83,7 @@ display as text "Output: `outcsv'"
 display as text ""
 
 *-------------------------------------------------------------------------------
-* Create empty dataset to accumulate results
+* Create empty master dataset to accumulate results
 *-------------------------------------------------------------------------------
 tempfile master
 clear
@@ -100,6 +98,13 @@ save `master', replace
 
 *-------------------------------------------------------------------------------
 * Loop over all indicators and fetch data from World Bank API
+*
+* KEY DESIGN: We never store raw JSON in Stata local macros (which would
+* break on special characters like : { } ").  Instead we:
+*   1. Download JSON to a temp file
+*   2. Use filefilter to split records onto separate lines (file-level)
+*   3. Import lines as string variable observations
+*   4. Parse fields with regexm() on variables — no macro involvement
 *-------------------------------------------------------------------------------
 local i = 0
 foreach ind of local indicators {
@@ -109,7 +114,6 @@ foreach ind of local indicators {
 
     display as text "[`i'/`n_indicators'] Fetching `ind' (ages `alabel', `glabel')..."
 
-    * Paginate through results
     local page = 1
     local total_pages = 1
     local rec_count = 0
@@ -118,7 +122,7 @@ foreach ind of local indicators {
 
         local url "`base_url'/country/all/indicator/`ind'?date=`year'&format=json&per_page=`per_page'&page=`page'"
 
-        * Download JSON to a temp file
+        * --- Step 1: Download JSON to a temp file ---
         tempfile jsonfile
         capture copy "`url'" `jsonfile', replace
 
@@ -127,145 +131,59 @@ foreach ind of local indicators {
             continue, break
         }
 
-        * Read the JSON as a text file
-        tempfile parsed
-        clear
-        gen strL raw_json = ""
-        set obs 1
-        replace raw_json = fileread(`jsonfile')
+        * --- Step 2: Split JSON records onto separate lines ---
+        * The pattern },{ only appears between top-level array elements,
+        * so replacing it with }\n{ puts each record on its own line.
+        tempfile splitfile
+        filefilter `jsonfile' `splitfile', from("},{") to("}\r\n{") replace
 
-        * ---------------------------------------------------------------
-        * Parse total pages from the metadata header (first occurrence)
-        * The JSON looks like: [{"page":1,"pages":3,...},[{...},{...},...]]
-        * ---------------------------------------------------------------
+        * --- Step 3: Import each line as one string observation ---
+        clear
+        import delimited v1 using `splitfile', delimiters("\n") stringcols(_all) nonames bindquote(nobind)
+
+        * --- Step 4a: Extract pagination metadata (variable-level, no macros) ---
         if `page' == 1 {
-            * Extract "pages": value from metadata
-            local raw_content = raw_json[1]
-            local pages_pos = strpos(`"`raw_content'"', `""pages":"')
-            if `pages_pos' == 0 {
-                local pages_pos = strpos(`"`raw_content'"', `""pages":"')
+            * The first observation contains the metadata header with "pages":N
+            gen _pg = regexs(1) if regexm(v1, `""pages":([0-9]+)"')
+            local total_pages = _pg[1]
+            if "`total_pages'" == "" | "`total_pages'" == "." {
+                local total_pages = 1
             }
-
-            * Use regex to extract pages count
-            gen str1000 meta_chunk = substr(raw_json, 1, 200)
-            gen pages_str = regexs(1) if regexm(meta_chunk, `""pages":([0-9]+)"')
-            local total_pages = pages_str[1]
-            if "`total_pages'" == "" local total_pages = 1
-            capture destring pages_str, replace
+            drop _pg
         }
 
-        * ---------------------------------------------------------------
-        * Parse country-level records from the JSON
-        * Strategy: split JSON on "},{"  to isolate each record, then
-        * extract fields using regular expressions.
-        * ---------------------------------------------------------------
-        clear
-        gen strL raw_json = ""
-        set obs 1
-        replace raw_json = fileread(`jsonfile')
+        * --- Step 4b: Parse country data using regexm on variables ---
+        * countryiso3code
+        gen country_code = regexs(1) if regexm(v1, `""countryiso3code":"([^"]+)"')
 
-        * Extract just the data array (second element of the outer array)
-        * Find the start of the data array after the metadata object
-        gen long data_start = strpos(raw_json, `"[{"')
-        * Move past the metadata object - find the second [{
-        gen strL remainder = substr(raw_json, data_start + 1, .)
-        gen long second_bracket = strpos(remainder, `"[{"')
+        * Country name: inside "country":{"id":"...","value":"<name>"}
+        gen country_name = regexs(1) if regexm(v1, `""country":[^}]*"value":"([^"]+)"')
 
-        * If there's no data array, skip
-        if second_bracket[1] == 0 | data_start[1] == 0 {
-            display as text "  -> No data on page `page'"
-            local page = `page' + 1
-            continue
-        }
+        * Numeric value: "value":1234.56  (string values like "value":"text" won't match)
+        gen value_str = regexs(1) if regexm(v1, `""value":([0-9][0-9.eE+-]*)"')
+        gen double value = real(value_str)
 
-        gen strL data_json = substr(remainder, second_bracket, .)
+        * --- Step 5: Keep only valid country records ---
+        drop if missing(country_code) | country_code == ""
+        drop v1 value_str
 
-        * Split records by splitting on the pattern  },{
-        local data_str = data_json[1]
-        clear
+        * --- Step 6: Add indicator metadata ---
+        gen str30 indicator = "`ind'"
+        gen str10 age_group = "`alabel'"
+        gen str10 gender    = "`glabel'"
+        gen int   year      = `year'
 
-        * Count approximate number of records
-        local remaining `"`data_str'"'
-        local n_recs 0
-
-        * Use a simpler approach: save data_json to file and parse line by line
-        * Actually, let's use Stata's split approach with filewrite/fileread
-
-        * Write each JSON object on its own line
-        tempfile split_file
-        tempfile records_dta
-
-        clear
-        set obs 1
-        gen strL data = `"`data_str'"'
-
-        * Replace },{ with a newline delimiter
-        replace data = subinstr(data, `"},{"', `"}"' + char(10) + `"{"', .)
-
-        * Remove outer brackets
-        replace data = substr(data, 2, length(data) - 2) if substr(data, 1, 1) == "["
-        replace data = substr(data, 1, length(data) - 1) if substr(data, length(data), 1) == "]"
-
-        * Save to file and re-import line by line
-        local data_content = data[1]
-
-        clear
-        tempfile lines_file
-        file open fh using `lines_file', write replace
-        file write fh `"`data_content'"'
-        file close fh
-
-        import delimited using `lines_file', delimiters("\n") varnames(nonames) clear stringcols(_all)
-
-        rename v1 json_record
-        local n_recs = _N
-
-        * Parse fields from each JSON record
-        gen str3   country_code = ""
-        gen str100 country_name = ""
-        gen double value_num    = .
-
-        forvalues r = 1/`n_recs' {
-            local rec = json_record[`r']
-
-            * Extract countryiso3code
-            if regexm(`"`rec'"', `""countryiso3code":"([^"]*)"') {
-                quietly replace country_code = regexs(1) in `r'
-            }
-
-            * Extract country name (inside "country":{"id":"...","value":"..."})
-            if regexm(`"`rec'"', `""country":\{"id":"[^"]*","value":"([^"]*)""') {
-                quietly replace country_name = regexs(1) in `r'
-            }
-
-            * Extract value (could be a number or null)
-            if regexm(`"`rec'"', `""value":([0-9.e+-]+)"') {
-                local val = regexs(1)
-                quietly replace value_num = real("`val'") in `r'
-            }
-        }
-
-        * Keep parsed fields and add indicator metadata
-        keep country_code country_name value_num
-        rename value_num value
-
-        gen str30 indicator  = "`ind'"
-        gen str10 age_group  = "`alabel'"
-        gen str10 gender     = "`glabel'"
-        gen int   year       = `year'
-
-        * Reorder to match master
         order country_code country_name indicator age_group gender year value
 
         local rec_count = `rec_count' + _N
 
-        * Append to master
+        * --- Step 7: Append to master ---
         append using `master'
         save `master', replace
 
         local page = `page' + 1
 
-        * Small delay to be polite to the API
+        * Be polite to the API
         sleep 500
     }
 
