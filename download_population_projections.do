@@ -138,8 +138,10 @@ foreach ind of local indicators {
         filefilter `jsonfile' `splitfile', from("},{") to("}\r\n{") replace
 
         * --- Step 3: Import each line as one string observation ---
+        * Use infix (not import delimited) to avoid quote-parsing and
+        * option-compatibility issues across Stata versions.
         clear
-        import delimited v1 using `splitfile', delimiters("\n") stringcols(_all) nonames bindquote(nobind)
+        infix str2045 v1 1-2045 using `splitfile', clear
 
         * --- Step 4a: Extract pagination metadata (variable-level, no macros) ---
         if `page' == 1 {
