@@ -120,7 +120,7 @@ foreach ind of local indicators {
 
     while `page' <= `total_pages' {
 
-        local url "`base_url'/country/all/indicator/`ind'?date=`year'&format=json&per_page=`per_page'&page=`page'"
+        local url "`base_url'/country/all/indicator/`ind'?date=`year'&source=40&format=json&per_page=`per_page'&page=`page'"
 
         * --- Step 1: Download JSON to a temp file ---
         tempfile jsonfile
