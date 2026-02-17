@@ -6,13 +6,16 @@ Indicators follow the pattern: SP.POP.<age_code>.<gender>
   e.g. SP.POP.3539.MA = Male population aged 35-39
 
 Usage:
-    python download_population_projections.py
+    python download_population_projections.py <output_folder>
+    python download_population_projections.py              (saves to current dir)
 
 Output:
-    population_projections_2050.csv
+    <output_folder>/population_projections_2050.csv
 """
 
 import csv
+import os
+import sys
 import time
 import urllib.request
 import json
@@ -49,7 +52,7 @@ GENDERS = [
 
 YEAR = 2050
 PER_PAGE = 500
-OUTPUT_FILE = "population_projections_2050.csv"
+OUTPUT_FILENAME = "population_projections_2050.csv"
 
 
 def build_indicators():
@@ -106,9 +109,19 @@ def fetch_indicator(indicator_id, year):
 
 
 def main():
+    # Accept optional output folder from command line
+    if len(sys.argv) > 1:
+        output_dir = sys.argv[1]
+    else:
+        output_dir = "."
+
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, OUTPUT_FILENAME)
+
     indicators = build_indicators()
     print(f"Downloading {len(indicators)} indicators for year {YEAR}...")
     print(f"Age groups: {len(AGE_GROUPS)} | Genders: {len(GENDERS)}")
+    print(f"Output: {output_path}")
     print()
 
     all_rows = []
@@ -140,13 +153,13 @@ def main():
         "age_group", "gender", "year", "value",
     ]
 
-    with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as f:
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(all_rows)
 
     print()
-    print(f"Done! Wrote {len(all_rows)} rows to {OUTPUT_FILE}")
+    print(f"Done! Wrote {len(all_rows)} rows to {output_path}")
 
 
 if __name__ == "__main__":
