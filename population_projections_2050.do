@@ -62,11 +62,14 @@ local first = 1
 
 foreach ind of local male_indicators {
 
-    quietly wbopendata, indicator(`ind') year(2050) clear long
+    * wbopendata converts dots to underscores and lowercases variable names
+    local varname = lower(subinstr("`ind'", ".", "_", .))
+
+    wbopendata, indicator(`ind') year(2050) clear long
 
     * Keep only relevant variables
-    keep countrycode countryname year `ind'
-    rename `ind' pop_value
+    keep countrycode countryname year `varname'
+    rename `varname' pop_value
 
     * Extract age group from indicator name
     local age_part = subinstr("`ind'", "SP.POP.", "", 1)
@@ -92,10 +95,12 @@ foreach ind of local male_indicators {
 
 foreach ind of local female_indicators {
 
-    quietly wbopendata, indicator(`ind') year(2050) clear long
+    local varname = lower(subinstr("`ind'", ".", "_", .))
 
-    keep countrycode countryname year `ind'
-    rename `ind' pop_value
+    wbopendata, indicator(`ind') year(2050) clear long
+
+    keep countrycode countryname year `varname'
+    rename `varname' pop_value
 
     local age_part = subinstr("`ind'", "SP.POP.", "", 1)
     local age_part = subinstr("`age_part'", ".FE", "", 1)
