@@ -66,12 +66,44 @@ def find_indicator() -> tuple:
 
 
 def get_country_ids() -> list:
-    """Return location IDs for country-level entries (typeId == 4)."""
+    """Return location IDs for country-level entries."""
     print("Fetching country list ...")
     locs = get_all_pages(f"{BASE_URL}/locations?pageSize=500")
-    countries = [loc for loc in locs if loc.get("typeId") == 4]
-    print(f"  {len(countries)} countries found")
-    return [loc["id"] for loc in countries]
+    if not locs:
+        raise RuntimeError("Locations API returned no data.")
+
+    # Diagnostic: show keys from first record
+    print(f"  Location record keys: {list(locs[0].keys())}")
+    print(f"  Example: {locs[0]}")
+
+    # Try multiple possible field names for the country type filter
+    # UN API v1 uses locTypeId=4 for countries; older/newer versions may differ
+    TYPE_FIELDS = ("locTypeId", "typeId", "LocTypeId", "TypeId", "type")
+    type_field = next((f for f in TYPE_FIELDS if f in locs[0]), None)
+
+    if type_field:
+        countries = [loc for loc in locs if loc.get(type_field) == 4]
+    else:
+        # Fallback: keep anything with a 3-letter ISO code (real countries)
+        ISO_FIELDS = ("iso3Alpha", "Iso3Alpha", "iso3", "ISO3Alpha")
+        iso_field = next((f for f in ISO_FIELDS if f in locs[0]), None)
+        if iso_field:
+            countries = [loc for loc in locs
+                         if isinstance(loc.get(iso_field), str)
+                         and len(loc[iso_field]) == 3]
+        else:
+            raise RuntimeError(
+                f"Cannot identify country-type field. Keys: {list(locs[0].keys())}"
+            )
+
+    # Location ID field may also vary
+    ID_FIELDS = ("id", "locationId", "LocID", "locId", "Id")
+    id_field = next((f for f in ID_FIELDS if f in locs[0]), None)
+    if not id_field:
+        raise RuntimeError(f"Cannot find ID field. Keys: {list(locs[0].keys())}")
+
+    print(f"  {len(countries)} countries found (type field: '{type_field or 'iso3-fallback'}', id field: '{id_field}')")
+    return [loc[id_field] for loc in countries]
 
 
 def fetch_data(indicator_id: int, loc_ids: list) -> list:
