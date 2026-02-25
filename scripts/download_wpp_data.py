@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Download UN WPP2024 "Percentage of total population aged 0-14 years, both sexes"
-for all countries, 1990-2100, using the UN Population Data Portal API.
+for all countries, 1990-2100, from the WPP2024 bulk CSV files (no login required).
 
 Output: a tidy CSV with columns
     loc_id, iso3, location, year, pct_0_14
@@ -22,16 +22,25 @@ Stata example — use the FULL Python path to avoid launcher issues on Windows:
 """
 
 import sys
-import time
+import io
 import requests
 import pandas as pd
 from pathlib import Path
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-BASE_URL = "https://population.un.org/dataportalapi/api/v1"
 YEAR_MIN = 1990
 YEAR_MAX = 2100
+
+# WPP2024 bulk CSV files (no authentication required)
+WPP_BASE = (
+    "https://population.un.org/wpp/Download/Files/"
+    "1_Indicators%20(Standard)/CSV_FILES"
+)
+CSV_FILES = [
+    f"{WPP_BASE}/WPP2024_PctByBroadAgeSex_Estimates.csv",
+    f"{WPP_BASE}/WPP2024_PctByBroadAgeSex_Medium.csv",
+]
 
 # Accept 1-arg (output_dir) or 2-arg (raw_dir output_dir) for backward compat
 if len(sys.argv) >= 3:
@@ -43,89 +52,13 @@ else:
 
 OUTPUT_FILE = PROCESSED_DIR / "wpp2024_pct_0_14_both_sexes.csv"
 
-# ── API helpers ───────────────────────────────────────────────────────────────
+# ── Download helpers ───────────────────────────────────────────────────────────
 
-def get_all_pages(url: str) -> list:
-    """Walk paginated JSON responses; return combined list from the 'data' key."""
-    rows, current = [], url
-    while current:
-        r = requests.get(current, timeout=120)
-        r.raise_for_status()
-        body = r.json()
-        rows.extend(body.get("data", []))
-        current = body.get("nextPage")
-    return rows
-
-
-def find_indicator() -> tuple:
-    # Indicator 71: Percentage of total population by broad age group (both sexes)
-    # Age groups returned: 0-14, 15-24, 25-64, 65+
-    # We filter to 0-14 below after fetching.
-    print("Using indicator 71: Percentage of total population by broad age group")
-    return 71, "Percentage of total population by broad age group"
-
-
-def get_country_ids() -> list:
-    """Return location IDs for country-level entries."""
-    print("Fetching country list ...")
-    locs = get_all_pages(f"{BASE_URL}/locations?pageSize=500")
-    if not locs:
-        raise RuntimeError("Locations API returned no data.")
-
-    # Diagnostic: show keys from first record
-    print(f"  Location record keys: {list(locs[0].keys())}")
-    print(f"  Example: {locs[0]}")
-
-    # Try multiple possible field names for the country type filter
-    # UN API v1 uses locTypeId=4 for countries; older/newer versions may differ
-    TYPE_FIELDS = ("locTypeId", "typeId", "LocTypeId", "TypeId", "type")
-    type_field = next((f for f in TYPE_FIELDS if f in locs[0]), None)
-
-    if type_field:
-        countries = [loc for loc in locs if loc.get(type_field) == 4]
-    else:
-        # Fallback: keep anything with a 3-letter ISO code (real countries)
-        ISO_FIELDS = ("iso3Alpha", "Iso3Alpha", "iso3", "ISO3Alpha")
-        iso_field = next((f for f in ISO_FIELDS if f in locs[0]), None)
-        if iso_field:
-            countries = [loc for loc in locs
-                         if isinstance(loc.get(iso_field), str)
-                         and len(loc[iso_field]) == 3]
-        else:
-            raise RuntimeError(
-                f"Cannot identify country-type field. Keys: {list(locs[0].keys())}"
-            )
-
-    # Location ID field may also vary
-    ID_FIELDS = ("id", "locationId", "LocID", "locId", "Id")
-    id_field = next((f for f in ID_FIELDS if f in locs[0]), None)
-    if not id_field:
-        raise RuntimeError(f"Cannot find ID field. Keys: {list(locs[0].keys())}")
-
-    print(f"  {len(countries)} countries found (type field: '{type_field or 'iso3-fallback'}', id field: '{id_field}')")
-    return [loc[id_field] for loc in countries]
-
-
-def fetch_data(indicator_id: int, loc_ids: list) -> list:
-    """Fetch indicator data for all locations in batches."""
-    batch_size = 40
-    n_batches = (len(loc_ids) + batch_size - 1) // batch_size
-    print(f"Fetching data ({n_batches} batches of up to {batch_size} countries) ...")
-
-    all_rows = []
-    for i in range(0, len(loc_ids), batch_size):
-        batch = loc_ids[i : i + batch_size]
-        url = (
-            f"{BASE_URL}/data/indicators/{indicator_id}"
-            f"/locations/{','.join(map(str, batch))}"
-            f"/start/{YEAR_MIN}/end/{YEAR_MAX}/?pageSize=5000"
-        )
-        rows = get_all_pages(url)
-        all_rows.extend(rows)
-        print(f"  Batch {i // batch_size + 1}/{n_batches}: {len(rows):,} rows")
-        time.sleep(0.25)
-
-    return all_rows
+def download_csv(url: str) -> pd.DataFrame:
+    print(f"  Downloading {url.split('/')[-1]} ...")
+    r = requests.get(url, timeout=300)
+    r.raise_for_status()
+    return pd.read_csv(io.StringIO(r.text))
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -133,48 +66,69 @@ def fetch_data(indicator_id: int, loc_ids: list) -> list:
 def main() -> None:
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1 – Discover indicator
-    indicator_id, indicator_name = find_indicator()
+    # 1 – Download and stack estimates + medium projections
+    print("Downloading WPP2024 bulk CSV files ...")
+    frames = []
+    for url in CSV_FILES:
+        df = download_csv(url)
+        frames.append(df)
+    df = pd.concat(frames, ignore_index=True)
+    print(f"  Combined: {len(df):,} rows  |  columns: {list(df.columns)}")
 
-    # 2 – Get country IDs
-    loc_ids = get_country_ids()
-
-    # 3 – Fetch data
-    raw = fetch_data(indicator_id, loc_ids)
-    if not raw:
-        raise RuntimeError("API returned no rows. Check indicator ID and date range.")
-
-    df = pd.DataFrame(raw)
-    print(f"\nRaw response: {len(df):,} rows  |  columns: {list(df.columns)}")
-
-    # 4 – Filter to 0-14 age group, both sexes, Estimates/Medium variant
-    for col, keep in [
-        ("ageLabel",  {"0-14", "0\u201314"}),
-        ("sex",       {"both", "both sexes", "total", "b", "bt"}),
-        ("variant",   {"medium", "estimates", "est.", "median", "no variant"}),
-    ]:
-        if col in df.columns:
+    # 2 – Keep countries only (LocTypeID == 4)
+    if "LocTypeID" in df.columns:
+        before = len(df)
+        df = df[df["LocTypeID"] == 4].copy()
+        print(f"  Country filter (LocTypeID==4): {before:,} -> {len(df):,} rows")
+    else:
+        # Fallback: filter by 3-letter ISO code presence
+        iso_col = next((c for c in df.columns if "iso3" in c.lower()), None)
+        if iso_col:
             before = len(df)
-            df = df[df[col].astype(str).str.lower().str.strip().isin(keep)].copy()
-            print(f"  {col} filter: {before:,} -> {len(df):,} rows")
+            df = df[df[iso_col].astype(str).str.len() == 3].copy()
+            print(f"  Country filter (iso3 length): {before:,} -> {len(df):,} rows")
+        else:
+            print("  WARNING: could not filter to countries only")
 
-    # 5 – Rename columns to tidy schema
-    #     (column names vary across API versions; map whatever is present)
+    # 3 – Year range
+    time_col = next((c for c in df.columns if c.lower() in ("time", "year")), None)
+    if time_col:
+        df[time_col] = pd.to_numeric(df[time_col], errors="coerce")
+        before = len(df)
+        df = df[(df[time_col] >= YEAR_MIN) & (df[time_col] <= YEAR_MAX)].copy()
+        print(f"  Year filter {YEAR_MIN}-{YEAR_MAX}: {before:,} -> {len(df):,} rows")
+
+    # 4 – Find the 0-14 percentage column
+    #     WPP2024 names it "PopAge0_14" in the percentage file, but let's be safe
+    age_col = next(
+        (c for c in df.columns
+         if ("0_14" in c or "0-14" in c or "014" in c.lower())
+         and ("pct" in c.lower() or "pop" in c.lower() or "age" in c.lower())),
+        None,
+    )
+    if age_col is None:
+        # Last resort: show all columns and raise
+        raise RuntimeError(
+            f"Cannot find 0-14 age column. Available columns:\n{list(df.columns)}"
+        )
+    print(f"  Using 0-14 column: '{age_col}'")
+
+    # 5 – Build tidy output
     rename = {}
     for src, dst in [
-        ("locationId", "loc_id"), ("LocID",     "loc_id"),
-        ("iso3Alpha",  "iso3"),   ("Iso3Alpha",  "iso3"),
-        ("location",   "location"), ("Location", "location"),
-        ("timeLabel",  "year"),   ("TimeLabel",  "year"), ("Time", "year"),
-        ("value",      "pct_0_14"), ("Value",    "pct_0_14"),
+        ("LocID",      "loc_id"),
+        ("ISO3_code",  "iso3"),
+        ("Location",   "location"),
+        (time_col,     "year"),
+        (age_col,      "pct_0_14"),
     ]:
-        if src in df.columns and dst not in df.columns:
+        if src and src in df.columns:
             rename[src] = dst
     df = df.rename(columns=rename)
 
     keep_cols = [c for c in ["loc_id", "iso3", "location", "year", "pct_0_14"]
                  if c in df.columns]
-    df = df[keep_cols]
+    df = df[keep_cols].copy()
     df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
     sort_key = ["loc_id", "year"] if "loc_id" in df.columns else ["location", "year"]
     df = df.sort_values(sort_key).reset_index(drop=True)
