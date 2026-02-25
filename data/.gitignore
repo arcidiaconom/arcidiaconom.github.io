@@ -1,0 +1,9 @@
+# Ignore large raw source files (download them via scripts/download_wpp_data.py)
+raw/*
+
+# Keep the placeholder so the directory is tracked
+!raw/.gitkeep
+
+# Keep processed outputs
+!processed/
+!processed/*.csv
