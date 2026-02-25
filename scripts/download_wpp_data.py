@@ -25,7 +25,7 @@ FILE_URL = (
     "WPP2024_POP_F05_3_PERCENTAGE_OF_POPULATION_BY_SELECT_AGE_GROUP_BOTH_SEXES.xlsx"
 )
 
-RAW_DIR       = Path("data/raw")
+RAW_DIR       = Path.home() / "Downloads"
 PROCESSED_DIR = Path("data/processed")
 
 RAW_FILE      = RAW_DIR / "WPP2024_pct_age_groups_both_sexes.xlsx"
@@ -216,7 +216,6 @@ def process(df: pd.DataFrame) -> pd.DataFrame:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
     # Step 1 – download (skip if already cached)
