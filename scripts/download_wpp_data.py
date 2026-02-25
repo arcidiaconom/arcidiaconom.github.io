@@ -58,36 +58,11 @@ def get_all_pages(url: str) -> list:
 
 
 def find_indicator() -> tuple:
-    """
-    Search Population-topic indicators for the 0-14 percentage series.
-    Returns (indicator_id, indicator_name).
-    """
-    print("Querying indicator list (all topics) ...")
-    inds = get_all_pages(f"{BASE_URL}/indicators?pageSize=500")
-    print(f"  {len(inds)} indicators found")
-
-    _AGE = {"0-14", "0\u201314", "0 to 14", "under 15", "under-15", "aged 0", "age 0"}
-    _PCT = {"percent", "proportion", "share", "%", "pct"}
-
-    for ind in inds:
-        txt = " ".join([
-            ind.get("Name", ""),
-            ind.get("ShortName", ""),
-            ind.get("DisplayName", ""),
-        ]).lower()
-        if any(a in txt for a in _AGE) and any(p in txt for p in _PCT):
-            print(f"  Found: ID={ind['Id']}  \"{ind['Name']}\"")
-            return ind["Id"], ind["Name"]
-
-    # Not found — print ALL indicators so the user can pick the right one
-    print("\n  No exact match. ALL available indicators:")
-    for ind in inds:
-        print(f"    ID {ind['Id']:4d}  {ind['Name']}")
-    raise RuntimeError(
-        "Could not auto-detect the 0-14 percentage indicator.\n"
-        "Look at the list above, find the right ID, then replace find_indicator()\n"
-        "with:  return <ID>, '<name>'"
-    )
+    # Indicator 71: Percentage of total population by broad age group (both sexes)
+    # Age groups returned: 0-14, 15-24, 25-64, 65+
+    # We filter to 0-14 below after fetching.
+    print("Using indicator 71: Percentage of total population by broad age group")
+    return 71, "Percentage of total population by broad age group"
 
 
 def get_country_ids() -> list:
@@ -140,10 +115,11 @@ def main() -> None:
     df = pd.DataFrame(raw)
     print(f"\nRaw response: {len(df):,} rows  |  columns: {list(df.columns)}")
 
-    # 4 – Filter to both sexes + Estimates/Medium variant
+    # 4 – Filter to 0-14 age group, both sexes, Estimates/Medium variant
     for col, keep in [
-        ("sex",     {"both", "both sexes", "total", "b", "bt"}),
-        ("variant", {"medium", "estimates", "est.", "median", "no variant"}),
+        ("ageLabel",  {"0-14", "0\u201314"}),
+        ("sex",       {"both", "both sexes", "total", "b", "bt"}),
+        ("variant",   {"medium", "estimates", "est.", "median", "no variant"}),
     ]:
         if col in df.columns:
             before = len(df)
