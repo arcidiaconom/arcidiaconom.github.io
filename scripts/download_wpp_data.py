@@ -8,7 +8,16 @@ Outputs a clean CSV with population share columns for 4 age groups,
 all countries, years 1990-2100.
 
 Usage:
-    python scripts/download_wpp_data.py
+    python scripts/download_wpp_data.py [data_raw_dir] [data_output_dir]
+
+Arguments (both optional):
+    data_raw_dir    Folder where the raw XLSX is saved.
+                    Default: ~/Downloads
+    data_output_dir Folder where the processed CSV is saved.
+                    Default: data/processed  (relative to working directory)
+
+Stata example:
+    shell "${PYTHON}" "${root}/scripts/download_wpp_data.py" "${data_raw}" "${data_output}"
 """
 
 import sys
@@ -25,10 +34,11 @@ FILE_URL = (
     "WPP2024_POP_F05_3_PERCENTAGE_OF_POPULATION_BY_SELECT_AGE_GROUP_BOTH_SEXES.xlsx"
 )
 
-RAW_DIR       = Path.home() / "Downloads"
-PROCESSED_DIR = Path("data/processed")
+# Paths: overridden by command-line arguments if provided
+RAW_DIR       = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.home() / "Downloads"
+PROCESSED_DIR = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("data/processed")
 
-RAW_FILE      = RAW_DIR / "WPP2024_pct_age_groups_both_sexes.xlsx"
+RAW_FILE      = RAW_DIR  / "WPP2024_pct_age_groups_both_sexes.xlsx"
 OUTPUT_FILE   = PROCESSED_DIR / "wpp2024_pct_age_groups_both_sexes.csv"
 
 YEAR_MIN = 1990
