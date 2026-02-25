@@ -62,11 +62,12 @@ def find_indicator() -> tuple:
     Search Population-topic indicators for the 0-14 percentage series.
     Returns (indicator_id, indicator_name).
     """
-    print("Querying indicator list ...")
-    inds = get_all_pages(f"{BASE_URL}/indicators?topicId=1&pageSize=200")
+    print("Querying indicator list (all topics) ...")
+    inds = get_all_pages(f"{BASE_URL}/indicators?pageSize=500")
+    print(f"  {len(inds)} indicators found")
 
-    _AGE = {"0-14", "0\u201314", "0 to 14", "under 15", "under-15", "aged 0"}
-    _PCT = {"percent", "proportion", "share", "%"}
+    _AGE = {"0-14", "0\u201314", "0 to 14", "under 15", "under-15", "aged 0", "age 0"}
+    _PCT = {"percent", "proportion", "share", "%", "pct"}
 
     for ind in inds:
         txt = " ".join([
@@ -78,14 +79,14 @@ def find_indicator() -> tuple:
             print(f"  Found: ID={ind['Id']}  \"{ind['Name']}\"")
             return ind["Id"], ind["Name"]
 
-    # Not found — print all percentage indicators so the user can set one manually
-    print("\n  No exact match found. Available percentage/proportion indicators:")
+    # Not found — print ALL indicators so the user can pick the right one
+    print("\n  No exact match. ALL available indicators:")
     for ind in inds:
-        if any(p in ind.get("Name", "").lower() for p in _PCT):
-            print(f"    ID {ind['Id']:4d}  {ind['Name']}")
+        print(f"    ID {ind['Id']:4d}  {ind['Name']}")
     raise RuntimeError(
         "Could not auto-detect the 0-14 percentage indicator.\n"
-        "Set INDICATOR_ID manually near the top of the script based on the list above."
+        "Look at the list above, find the right ID, then replace find_indicator()\n"
+        "with:  return <ID>, '<name>'"
     )
 
 
