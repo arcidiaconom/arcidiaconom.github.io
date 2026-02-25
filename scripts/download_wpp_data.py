@@ -1,226 +1,123 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
-Download and process UN WPP2024:
-  "Population Percentage by Select Age Groups - Both Sexes (XLSX)"
-  Standard Projections > Population
+Download UN WPP2024 "Percentage of total population aged 0-14 years, both sexes"
+for all countries, 1990-2100, using the UN Population Data Portal API.
 
-Outputs a clean CSV with population share columns for 4 age groups,
-all countries, years 1990-2100.
+Output: a tidy CSV with columns
+    loc_id, iso3, location, year, pct_0_14
 
 Usage:
+    python scripts/download_wpp_data.py [data_output_dir]
+
+Arguments (optional):
+    data_output_dir   Folder where the CSV is saved.
+                      Default: data/processed  (relative to working directory)
+
+    Two-argument form also accepted for backward compatibility:
     python scripts/download_wpp_data.py [data_raw_dir] [data_output_dir]
 
-Arguments (both optional):
-    data_raw_dir    Folder where the raw XLSX is saved.
-                    Default: ~/Downloads
-    data_output_dir Folder where the processed CSV is saved.
-                    Default: data/processed  (relative to working directory)
-
-Stata example:
-    shell "${PYTHON}" "${root}/scripts/download_wpp_data.py" "${data_raw}" "${data_output}"
+Stata example — use the FULL Python path to avoid launcher issues on Windows:
+    global PYTHON "C:\Users\...\AppData\Local\Programs\Python\Python313\python.exe"
+    shell "${PYTHON}" "${root}/scripts/download_wpp_data.py" "${data_output}"
 """
 
 import sys
+import time
 import requests
 import pandas as pd
 from pathlib import Path
 
-# ── Configuration ────────────────────────────────────────────────────────────
+# ── Configuration ─────────────────────────────────────────────────────────────
 
-# Direct download URL for WPP2024 Standard Projections > Population >
-# "Population Percentage by Select Age Groups - Both Sexes"
-FILE_URL = (
-    "https://population.un.org/wpp/assets/Files/"
-    "WPP2024_POP_F05_3_PERCENTAGE_OF_POPULATION_BY_SELECT_AGE_GROUP_BOTH_SEXES.xlsx"
-)
-
-# Paths: overridden by command-line arguments if provided
-RAW_DIR       = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.home() / "Downloads"
-PROCESSED_DIR = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("data/processed")
-
-RAW_FILE      = RAW_DIR  / "WPP2024_pct_age_groups_both_sexes.xlsx"
-OUTPUT_FILE   = PROCESSED_DIR / "wpp2024_pct_age_groups_both_sexes.csv"
-
+BASE_URL = "https://population.un.org/dataportalapi/api/v1"
 YEAR_MIN = 1990
 YEAR_MAX = 2100
 
-# Variant to keep (Standard Projections uses "Medium" for projections)
-# Set to None to keep all variants.
-KEEP_VARIANT = "Medium"
+# Accept 1-arg (output_dir) or 2-arg (raw_dir output_dir) for backward compat
+if len(sys.argv) >= 3:
+    PROCESSED_DIR = Path(sys.argv[2])
+elif len(sys.argv) >= 2:
+    PROCESSED_DIR = Path(sys.argv[1])
+else:
+    PROCESSED_DIR = Path("data/processed")
 
-# ── Download ─────────────────────────────────────────────────────────────────
+OUTPUT_FILE = PROCESSED_DIR / "wpp2024_pct_0_14_both_sexes.csv"
 
-def download_file(url: str, dest: Path) -> None:
-    """Stream-download url → dest, with a simple progress indicator."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading:\n  {url}")
-    try:
-        resp = requests.get(url, stream=True, timeout=120)
-        resp.raise_for_status()
-    except requests.HTTPError as e:
-        print(
-            f"\nHTTP error {e.response.status_code}. "
-            "The URL may have changed – please check:\n"
-            "  https://population.un.org/wpp/downloads"
-            "?folder=Standard%20Projections&group=Population\n"
-            "and update FILE_URL at the top of this script.",
-            file=sys.stderr,
+# ── API helpers ───────────────────────────────────────────────────────────────
+
+def get_all_pages(url: str) -> list:
+    """Walk paginated JSON responses; return combined list from the 'data' key."""
+    rows, current = [], url
+    while current:
+        r = requests.get(current, timeout=120)
+        r.raise_for_status()
+        body = r.json()
+        rows.extend(body.get("data", []))
+        current = body.get("nextPage")
+    return rows
+
+
+def find_indicator() -> tuple:
+    """
+    Search Population-topic indicators for the 0-14 percentage series.
+    Returns (indicator_id, indicator_name).
+    """
+    print("Querying indicator list ...")
+    inds = get_all_pages(f"{BASE_URL}/indicators?topicId=1&pageSize=200")
+
+    _AGE = {"0-14", "0\u201314", "0 to 14", "under 15", "under-15", "aged 0"}
+    _PCT = {"percent", "proportion", "share", "%"}
+
+    for ind in inds:
+        txt = " ".join([
+            ind.get("Name", ""),
+            ind.get("ShortName", ""),
+            ind.get("DisplayName", ""),
+        ]).lower()
+        if any(a in txt for a in _AGE) and any(p in txt for p in _PCT):
+            print(f"  Found: ID={ind['Id']}  \"{ind['Name']}\"")
+            return ind["Id"], ind["Name"]
+
+    # Not found — print all percentage indicators so the user can set one manually
+    print("\n  No exact match found. Available percentage/proportion indicators:")
+    for ind in inds:
+        if any(p in ind.get("Name", "").lower() for p in _PCT):
+            print(f"    ID {ind['Id']:4d}  {ind['Name']}")
+    raise RuntimeError(
+        "Could not auto-detect the 0-14 percentage indicator.\n"
+        "Set INDICATOR_ID manually near the top of the script based on the list above."
+    )
+
+
+def get_country_ids() -> list:
+    """Return location IDs for country-level entries (typeId == 4)."""
+    print("Fetching country list ...")
+    locs = get_all_pages(f"{BASE_URL}/locations?pageSize=500")
+    countries = [loc for loc in locs if loc.get("typeId") == 4]
+    print(f"  {len(countries)} countries found")
+    return [loc["id"] for loc in countries]
+
+
+def fetch_data(indicator_id: int, loc_ids: list) -> list:
+    """Fetch indicator data for all locations in batches."""
+    batch_size = 40
+    n_batches = (len(loc_ids) + batch_size - 1) // batch_size
+    print(f"Fetching data ({n_batches} batches of up to {batch_size} countries) ...")
+
+    all_rows = []
+    for i in range(0, len(loc_ids), batch_size):
+        batch = loc_ids[i : i + batch_size]
+        url = (
+            f"{BASE_URL}/data/indicators/{indicator_id}"
+            f"/locations/{','.join(map(str, batch))}"
+            f"/start/{YEAR_MIN}/end/{YEAR_MAX}/?pageSize=5000"
         )
-        sys.exit(1)
-    except requests.ConnectionError as e:
-        print(f"\nConnection error: {e}", file=sys.stderr)
-        sys.exit(1)
+        rows = get_all_pages(url)
+        all_rows.extend(rows)
+        print(f"  Batch {i // batch_size + 1}/{n_batches}: {len(rows):,} rows")
+        time.sleep(0.25)
 
-    total = int(resp.headers.get("content-length", 0))
-    downloaded = 0
-    with open(dest, "wb") as fh:
-        for chunk in resp.iter_content(chunk_size=65_536):
-            fh.write(chunk)
-            downloaded += len(chunk)
-            if total:
-                pct = downloaded / total * 100
-                print(f"\r  {pct:5.1f}%  ({downloaded:,} / {total:,} bytes)", end="", flush=True)
-    print(f"\nSaved → {dest}")
-
-
-# ── Parse XLSX ───────────────────────────────────────────────────────────────
-
-def detect_header_row(path: Path, sheet: str, search_limit: int = 25) -> int:
-    """
-    WPP XLSX files embed several rows of notes before the real column headers.
-    Scan up to `search_limit` rows for the row that contains 'LocID' or 'Location'.
-    Falls back to row 16 (0-indexed) which is the historical default.
-    """
-    peek = pd.read_excel(path, sheet_name=sheet, nrows=search_limit, header=None)
-    for i, row in peek.iterrows():
-        values_lower = {str(v).strip().lower() for v in row}
-        if values_lower & {"locid", "location", "iso3 alpha-code"}:
-            return i
-    return 16  # safe fallback
-
-
-def load_xlsx(path: Path) -> pd.DataFrame:
-    print(f"Reading XLSX from {path} …")
-    xl = pd.ExcelFile(path, engine="openpyxl")
-    sheet = xl.sheet_names[0]
-    header_row = detect_header_row(path, sheet)
-    print(f"  Header detected at row {header_row} (sheet '{sheet}')")
-    df = pd.read_excel(path, sheet_name=sheet, header=header_row, engine="openpyxl")
-    # Strip whitespace from column names
-    df.columns = [str(c).strip() for c in df.columns]
-    print(f"  Loaded {len(df):,} rows × {len(df.columns)} columns")
-    return df
-
-
-# ── Process ───────────────────────────────────────────────────────────────────
-
-# Column-name aliases that appear across WPP editions
-_YEAR_ALIASES     = {"year", "time"}
-_LOCID_ALIASES    = {"locid", "loc_id", "locationid"}
-_LOCNAME_ALIASES  = {"location", "region, subregion, country or area *",
-                     "region, subregion, country or area"}
-_ISO3_ALIASES     = {"iso3 alpha-code", "iso3_alpha_code", "iso3alpha", "iso3"}
-_TYPE_ALIASES     = {"loctypename", "loctype", "type", "loctypeid"}
-_VARIANT_ALIASES  = {"variant", "varid"}
-
-
-def _find_col(df: pd.DataFrame, aliases: set) -> str | None:
-    for c in df.columns:
-        if c.lower().strip() in aliases:
-            return c
-    return None
-
-
-def _age_group_cols(df: pd.DataFrame) -> list[str]:
-    """
-    Identify the percentage-by-age-group columns.
-    They are the numeric columns that come after the metadata columns.
-    WPP typically names them as age ranges or descriptive labels like
-    '0-4', '5-14', '15-24', '25-64', '65+', '80+', etc.
-    """
-    meta_keywords = {
-        "sort", "locid", "notes", "iso", "sdmx", "type", "parent",
-        "location", "region", "varid", "variant", "time", "year",
-        "unnamed", "nan",
-    }
-    age_cols = []
-    for c in df.columns:
-        c_lower = c.lower().strip()
-        if any(kw in c_lower for kw in meta_keywords):
-            continue
-        # Accept columns that look like age ranges or "under X" / "X+" labels
-        age_cols.append(c)
-    return age_cols
-
-
-def process(df: pd.DataFrame) -> pd.DataFrame:
-    # ── Locate key columns ──────────────────────────────────────────────────
-    year_col    = _find_col(df, _YEAR_ALIASES)
-    locid_col   = _find_col(df, _LOCID_ALIASES)
-    locname_col = _find_col(df, _LOCNAME_ALIASES)
-    iso3_col    = _find_col(df, _ISO3_ALIASES)
-    type_col    = _find_col(df, _TYPE_ALIASES)
-    variant_col = _find_col(df, _VARIANT_ALIASES)
-
-    if year_col is None:
-        raise RuntimeError(
-            "Could not find a Year/Time column. "
-            f"Available columns: {list(df.columns)}"
-        )
-
-    print(f"  Year column  : '{year_col}'")
-    print(f"  Location col : '{locname_col}'")
-    print(f"  LocID col    : '{locid_col}'")
-    print(f"  ISO3 col     : '{iso3_col}'")
-    print(f"  Type col     : '{type_col}'")
-    print(f"  Variant col  : '{variant_col}'")
-
-    # ── Filter variant ──────────────────────────────────────────────────────
-    if KEEP_VARIANT and variant_col:
-        before = len(df)
-        df = df[df[variant_col].astype(str).str.strip().str.lower()
-                == KEEP_VARIANT.lower()].copy()
-        print(f"  Variant filter '{KEEP_VARIANT}': {before:,} → {len(df):,} rows")
-
-    # ── Filter years ────────────────────────────────────────────────────────
-    df[year_col] = pd.to_numeric(df[year_col], errors="coerce")
-    df = df[df[year_col].between(YEAR_MIN, YEAR_MAX)].copy()
-    print(f"  Year filter {YEAR_MIN}–{YEAR_MAX}: {len(df):,} rows remain")
-
-    # ── Filter to countries only ────────────────────────────────────────────
-    if type_col:
-        mask = df[type_col].astype(str).str.lower().str.contains("country", na=False)
-        df = df[mask].copy()
-        print(f"  Country-only filter: {len(df):,} rows remain")
-    else:
-        print("  WARNING: no Type column found – keeping all location types.")
-
-    # ── Identify the 4 age-group percentage columns ────────────────────────
-    age_cols = _age_group_cols(df)
-    print(f"\n  Age-group columns found ({len(age_cols)}):")
-    for c in age_cols:
-        print(f"    • {c}")
-
-    if len(age_cols) == 0:
-        raise RuntimeError("No age-group columns detected – check column names.")
-
-    # ── Build tidy output ───────────────────────────────────────────────────
-    keep_meta = [c for c in [locid_col, iso3_col, locname_col, year_col] if c]
-    df_out = df[keep_meta + age_cols].copy()
-
-    # Rename meta columns to standard names
-    rename = {}
-    if locid_col:   rename[locid_col]   = "loc_id"
-    if iso3_col:    rename[iso3_col]    = "iso3"
-    if locname_col: rename[locname_col] = "location"
-    if year_col:    rename[year_col]    = "year"
-    df_out = df_out.rename(columns=rename)
-
-    df_out["year"] = df_out["year"].astype(int)
-    df_out = df_out.sort_values(["loc_id", "year"] if "loc_id" in df_out.columns
-                                else ["location", "year"]).reset_index(drop=True)
-
-    return df_out
+    return all_rows
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -228,24 +125,56 @@ def process(df: pd.DataFrame) -> pd.DataFrame:
 def main() -> None:
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Step 1 – download (skip if already cached)
-    if RAW_FILE.exists():
-        print(f"Raw file already cached: {RAW_FILE}")
-    else:
-        download_file(FILE_URL, RAW_FILE)
+    # 1 – Discover indicator
+    indicator_id, indicator_name = find_indicator()
 
-    # Step 2 – load
-    df = load_xlsx(RAW_FILE)
+    # 2 – Get country IDs
+    loc_ids = get_country_ids()
 
-    # Step 3 – process
-    print("\nProcessing …")
-    df_out = process(df)
+    # 3 – Fetch data
+    raw = fetch_data(indicator_id, loc_ids)
+    if not raw:
+        raise RuntimeError("API returned no rows. Check indicator ID and date range.")
 
-    # Step 4 – save
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    df_out.to_csv(OUTPUT_FILE, index=False)
-    print(f"\nDone.  {len(df_out):,} rows written → {OUTPUT_FILE}")
-    print(f"Columns: {list(df_out.columns)}")
+    df = pd.DataFrame(raw)
+    print(f"\nRaw response: {len(df):,} rows  |  columns: {list(df.columns)}")
+
+    # 4 – Filter to both sexes + Estimates/Medium variant
+    for col, keep in [
+        ("sex",     {"both", "both sexes", "total", "b", "bt"}),
+        ("variant", {"medium", "estimates", "est.", "median", "no variant"}),
+    ]:
+        if col in df.columns:
+            before = len(df)
+            df = df[df[col].astype(str).str.lower().str.strip().isin(keep)].copy()
+            print(f"  {col} filter: {before:,} -> {len(df):,} rows")
+
+    # 5 – Rename columns to tidy schema
+    #     (column names vary across API versions; map whatever is present)
+    rename = {}
+    for src, dst in [
+        ("locationId", "loc_id"), ("LocID",     "loc_id"),
+        ("iso3Alpha",  "iso3"),   ("Iso3Alpha",  "iso3"),
+        ("location",   "location"), ("Location", "location"),
+        ("timeLabel",  "year"),   ("TimeLabel",  "year"), ("Time", "year"),
+        ("value",      "pct_0_14"), ("Value",    "pct_0_14"),
+    ]:
+        if src in df.columns and dst not in df.columns:
+            rename[src] = dst
+    df = df.rename(columns=rename)
+
+    keep_cols = [c for c in ["loc_id", "iso3", "location", "year", "pct_0_14"]
+                 if c in df.columns]
+    df = df[keep_cols]
+    df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
+    sort_key = ["loc_id", "year"] if "loc_id" in df.columns else ["location", "year"]
+    df = df.sort_values(sort_key).reset_index(drop=True)
+
+    # 6 – Save
+    df.to_csv(OUTPUT_FILE, index=False)
+    print(f"\nDone.  {len(df):,} rows written -> {OUTPUT_FILE}")
+    print(f"Columns: {list(df.columns)}")
+    print(df.head(10).to_string())
 
 
 if __name__ == "__main__":
