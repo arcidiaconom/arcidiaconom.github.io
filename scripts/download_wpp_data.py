@@ -17,7 +17,7 @@ Arguments (optional):
     python scripts/download_wpp_data.py [data_raw_dir] [data_output_dir]
 
 Stata example — use the FULL Python path to avoid launcher issues on Windows:
-    global PYTHON "C:\Users\...\AppData\Local\Programs\Python\Python313\python.exe"
+    global PYTHON "C:/Users/.../AppData/Local/Programs/Python/Python313/python.exe"
     shell "${PYTHON}" "${root}/scripts/download_wpp_data.py" "${data_output}"
 """
 
