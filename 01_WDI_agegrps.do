@@ -8,15 +8,14 @@
   Source 40 = "Health Nutrition and Population Statistics:
                Population estimates and projections"
 
+  Called by:  RUN ALL.do  (expects ${data_raw} to be set)
+
   Output:
       ${data_raw}/population_projections.csv
       ${data_raw}/population_projections.dta
 
   Requirements: Stata 14+ (uses filefilter and copy with URLs)
 ==============================================================================*/
-
-clear all
-set more off
 
 *-------------------------------------------------------------------------------
 * Configuration
