@@ -40,33 +40,13 @@ local gender_codes   "MA" "FE"
 local gender_labels  "Male" "Female"
 
 *-------------------------------------------------------------------------------
-* Build indicator list
+* Count total indicators (for progress display)
 *-------------------------------------------------------------------------------
-local indicators     ""
-local ind_age_labels ""
-local ind_gender_labels ""
-local n_indicators   0
+local n_age     : word count `age_codes'
+local n_gender  : word count `gender_codes'
+local n_indicators = `n_age' * `n_gender'
 
-local a = 0
-foreach acode of local age_codes {
-    local ++a
-    local alabel : word `a' of `age_labels'
-
-    local g = 0
-    foreach gcode of local gender_codes {
-        local ++g
-        local glabel : word `g' of `gender_labels'
-
-        local indicator "SP.POP.`acode'.`gcode'"
-        local ++n_indicators
-
-        local indicators        `"`indicators' "`indicator'""'
-        local ind_age_labels    `"`ind_age_labels' "`alabel'""'
-        local ind_gender_labels `"`ind_gender_labels' "`glabel'""'
-    }
-}
-
-display as text "Built `n_indicators' indicators"
+display as text "Will download `n_indicators' indicators per year"
 
 *-------------------------------------------------------------------------------
 * Create empty master dataset
@@ -83,7 +63,7 @@ gen double  value        = .
 save `master', replace
 
 *-------------------------------------------------------------------------------
-* Loop over years and indicators, fetch data from World Bank API
+* Loop over years, age groups, and genders — fetch from World Bank API
 *-------------------------------------------------------------------------------
 local total_records = 0
 
@@ -96,90 +76,101 @@ foreach yr of local years {
     display as text ""
 
     local i = 0
-    foreach ind of local indicators {
-        local ++i
-        local alabel  : word `i' of `ind_age_labels'
-        local glabel  : word `i' of `ind_gender_labels'
+    local a = 0
 
-        display as text "[`i'/`n_indicators'] `ind' (`alabel', `glabel') ..."
+    foreach acode of local age_codes {
+        local ++a
+        local alabel : word `a' of `age_labels'
 
-        local page        = 1
-        local total_pages = 1
-        local rec_count   = 0
+        local g = 0
 
-        while `page' <= `total_pages' {
+        foreach gcode of local gender_codes {
+            local ++g
+            local glabel : word `g' of `gender_labels'
+            local ++i
 
-            local url "`base_url'/country/all/indicator/`ind'?date=`yr'&source=40&format=json&per_page=`per_page'&page=`page'"
+            local ind "SP.POP.`acode'.`gcode'"
 
-            *--- Download JSON with retry ---
-            local success = 0
-            forvalues attempt = 1/`max_retries' {
-                tempfile jsonfile
-                capture copy "`url'" `jsonfile', replace
-                if _rc == 0 {
-                    local success = 1
+            display as text "[`i'/`n_indicators'] `ind' (`alabel', `glabel') ..."
+
+            local page        = 1
+            local total_pages = 1
+            local rec_count   = 0
+
+            while `page' <= `total_pages' {
+
+                local url "`base_url'/country/all/indicator/`ind'?date=`yr'&source=40&format=json&per_page=`per_page'&page=`page'"
+
+                *--- Download JSON with retry ---
+                local success = 0
+                forvalues attempt = 1/`max_retries' {
+                    tempfile jsonfile
+                    capture copy "`url'" `jsonfile', replace
+                    if _rc == 0 {
+                        local success = 1
+                        continue, break
+                    }
+                    display as text "    retry `attempt'/`max_retries' (rc=`=_rc') ..."
+                    sleep 2000
+                }
+
+                if `success' == 0 {
+                    display as error "    FAILED after `max_retries' retries — skipping"
                     continue, break
                 }
-                display as text "    retry `attempt'/`max_retries' (rc=`=_rc') ..."
-                sleep 2000
-            }
 
-            if `success' == 0 {
-                display as error "    FAILED after `max_retries' retries — skipping"
-                continue, break
-            }
+                *--- Split JSON records onto separate lines ---
+                tempfile splitfile
+                filefilter `jsonfile' `splitfile', from("},{") to("}\r\n{") replace
 
-            *--- Split JSON records onto separate lines ---
-            tempfile splitfile
-            filefilter `jsonfile' `splitfile', from("},{") to("}\r\n{") replace
+                *--- Read each line as one observation ---
+                clear
+                infix str4000 v1 1-4000 using `splitfile', clear
 
-            *--- Read each line as one observation ---
-            clear
-            infix str4000 v1 1-4000 using `splitfile', clear
-
-            *--- Extract pagination from first page ---
-            if `page' == 1 {
-                gen _pg = regexs(1) if regexm(v1, `""pages":([0-9]+)"')
-                local total_pages = _pg[1]
-                if missing(`total_pages') | "`total_pages'" == "" {
-                    local total_pages = 1
+                *--- Extract pagination from first page ---
+                if `page' == 1 {
+                    gen _pg = regexs(1) if regexm(v1, `""pages":([0-9]+)"')
+                    local total_pages = _pg[1]
+                    if "`total_pages'" == "" | "`total_pages'" == "." {
+                        local total_pages = 1
+                    }
+                    drop _pg
                 }
-                drop _pg
+
+                *--- Parse fields ---
+                gen country_code = regexs(1) if regexm(v1, `""countryiso3code":"([^"]+)"')
+                gen country_name = regexs(1) if regexm(v1, `""country":[^}]*"value":"([^"]+)"')
+                gen value_str    = regexs(1) if regexm(v1, `""value":([0-9][0-9.eE+-]*)"')
+                gen double value = real(value_str)
+
+                *--- Keep valid country records only ---
+                drop if missing(country_code) | country_code == ""
+                drop v1 value_str
+
+                *--- Attach metadata ---
+                gen str30 indicator = "`ind'"
+                gen str10 age_group = "`alabel'"
+                gen str10 gender    = "`glabel'"
+                gen int   year      = `yr'
+
+                order country_code country_name indicator age_group gender year value
+
+                local rec_count = `rec_count' + _N
+
+                *--- Append to master ---
+                append using `master'
+                save `master', replace
+
+                local ++page
+                sleep 500
             }
 
-            *--- Parse fields ---
-            gen country_code = regexs(1) if regexm(v1, `""countryiso3code":"([^"]+)"')
-            gen country_name = regexs(1) if regexm(v1, `""country":[^}]*"value":"([^"]+)"')
-            gen value_str    = regexs(1) if regexm(v1, `""value":([0-9][0-9.eE+-]*)"')
-            gen double value = real(value_str)
+            local total_records = `total_records' + `rec_count'
+            display as text "    -> `rec_count' records"
 
-            *--- Keep valid country records only ---
-            drop if missing(country_code) | country_code == ""
-            drop v1 value_str
-
-            *--- Attach metadata ---
-            gen str30 indicator = "`ind'"
-            gen str10 age_group = "`alabel'"
-            gen str10 gender    = "`glabel'"
-            gen int   year      = `yr'
-
-            order country_code country_name indicator age_group gender year value
-
-            local rec_count = `rec_count' + _N
-
-            *--- Append to master ---
-            append using `master'
-            save `master', replace
-
-            local ++page
-            sleep 500
+            * Pause between indicators to avoid rate-limiting
+            sleep 1000
         }
-
-        local total_records = `total_records' + `rec_count'
-        display as text "    -> `rec_count' records"
-
-        * Pause between indicators to avoid rate-limiting
-        sleep 1000
     }
 }
 
