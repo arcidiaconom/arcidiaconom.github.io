@@ -89,9 +89,11 @@ foreach yr of local years {
             local glabel : word `g' of `gender_labels'
             local ++i
 
+            * Build indicator code — use = so periods are literal string chars
             local ind = "SP.POP." + "`acode'" + "." + "`gcode'"
 
-            display as text "[`i'/`n_indicators'] `ind' (`alabel', `glabel') ..."
+            * Display progress — each macro in its own quoted string
+            display as text "[`i'/`n_indicators'] " "`ind'" " (`alabel', `glabel') ..."
 
             local page        = 1
             local total_pages = 1
@@ -99,7 +101,8 @@ foreach yr of local years {
 
             while `page' <= `total_pages' {
 
-                local url "`base_url'/country/all/indicator/`ind'?date=`yr'&source=40&format=json&per_page=`per_page'&page=`page'"
+                * Build URL with = so periods in ind are never re-parsed
+                local url = "`base_url'" + "/country/all/indicator/" + "`ind'" + "?date=" + "`yr'" + "&source=40&format=json&per_page=" + "`per_page'" + "&page=" + "`page'"
 
                 *--- Download JSON with retry ---
                 local success = 0
