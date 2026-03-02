@@ -1,7 +1,13 @@
 /*==============================================================================
   UN World Population Prospects 2024 — Import & Clean
 
-  Replicates in Stata:
+  Source page (Standard Projections > Population):
+    https://population.un.org/wpp/downloads?folder=Standard%20Projections&group=Population
+
+  File: "Population by Select Age Groups – Both Sexes"
+    WPP2024_POP_F03_1_POPULATION_SELECT_AGE_GROUPS_BOTH_SEXES.xlsx
+
+  Replicates the following pandas call:
     df = pd.read_excel(
       "https://population.un.org/wpp/assets/Excel Files/1_Indicator (Standard)/"
       "EXCEL_FILES/2_Population/"
@@ -16,17 +22,28 @@ set more off
 
 * --------------------------------------------------------------------------- *
 * 1. Download the Excel file from the UN Population Division
+*    Browse the file list at:
+*    https://population.un.org/wpp/downloads?folder=Standard%20Projections&group=Population
+*
+*    If the URL below stops working, try the alternative path shown after it,
+*    or download manually from the page above.
 * --------------------------------------------------------------------------- *
 
-local url "https://population.un.org/wpp/assets/Excel%20Files/1_Indicator%20(Standard)/EXCEL_FILES/2_Population/WPP2024_POP_F03_1_POPULATION_SELECT_AGE_GROUPS_BOTH_SEXES.xlsx"
+local filename "WPP2024_POP_F03_1_POPULATION_SELECT_AGE_GROUPS_BOTH_SEXES.xlsx"
 
-copy "`url'" "WPP2024_POP_F03_1_POPULATION_SELECT_AGE_GROUPS_BOTH_SEXES.xlsx", replace
+* Primary URL (matches the original pandas code)
+local url "https://population.un.org/wpp/assets/Excel%20Files/1_Indicator%20(Standard)/EXCEL_FILES/2_Population/`filename'"
+
+* Alternative URL (newer path used on the 2024 site)
+* local url "https://population.un.org/wpp/Download/Files/1_Indicator%20(Standard)/EXCEL_FILES/2_Population/`filename'"
+
+copy "`url'" "`filename'", replace
 
 * --------------------------------------------------------------------------- *
 * 2. Import the "Estimates" sheet, skipping the first 16 rows
 * --------------------------------------------------------------------------- *
 
-import excel "WPP2024_POP_F03_1_POPULATION_SELECT_AGE_GROUPS_BOTH_SEXES.xlsx", ///
+import excel "`filename'", ///
     sheet("Estimates") cellrange(A17) firstrow clear
 
 * --------------------------------------------------------------------------- *
