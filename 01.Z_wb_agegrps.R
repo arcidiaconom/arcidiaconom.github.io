@@ -93,9 +93,9 @@ df <- wb_data(
     )
   ) %>%
   select(
-    iso3c, country, date,
-    indicator_id, age_code, age_group, sex,
-    value, unit, obs_status, footnote, last_updated
+    any_of(c("iso3c", "country", "date",
+             "indicator_id", "age_code", "age_group", "sex",
+             "value", "unit", "obs_status", "footnote", "last_updated"))
   ) %>%
   arrange(iso3c, date, sex, age_code)
 
