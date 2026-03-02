@@ -89,7 +89,7 @@ foreach yr of local years {
             local glabel : word `g' of `gender_labels'
             local ++i
 
-            local ind "SP.POP.`acode'.`gcode'"
+            local ind = "SP.POP." + "`acode'" + "." + "`gcode'"
 
             display as text "[`i'/`n_indicators'] `ind' (`alabel', `glabel') ..."
 
