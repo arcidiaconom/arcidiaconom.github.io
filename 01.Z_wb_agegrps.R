@@ -64,8 +64,8 @@ df <- wb_data(
 ) %>%
   filter(date %in% c(1990, 2020, 2050)) %>%
   mutate(
-    age_code = sub("^SP\\.POP\\.([^.]+)\\..*$", "\\1", indicatorID),
-    sex_code = sub("^SP\\.POP\\.[^.]+\\.([^.]+)$", "\\1", indicatorID),
+    age_code = sub("^SP\\.POP\\.([^.]+)\\..*$", "\\1", indicator_id),
+    sex_code = sub("^SP\\.POP\\.[^.]+\\.([^.]+)$", "\\1", indicator_id),
     age_group = dplyr::recode(
       age_code,
       "0004" = "0-4",
@@ -94,7 +94,7 @@ df <- wb_data(
   ) %>%
   select(
     iso3c, country, date,
-    indicatorID, age_code, age_group, sex,
+    indicator_id, age_code, age_group, sex,
     value, unit, obs_status, footnote, last_updated
   ) %>%
   arrange(iso3c, date, sex, age_code)
