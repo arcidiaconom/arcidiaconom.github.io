@@ -15,7 +15,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
-from pptx.chart.data import CategoryChartData
+from pptx.chart.data import CategoryChartData, XyChartData, BubbleChartData
 import math
 
 # ── Color Palette (matching HCI+ website style) ──────────────────────────────
@@ -264,7 +264,183 @@ text_box(s1, Inches(9.1), Inches(6.05), Inches(3.2), Inches(0.25),
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SLIDE 2 — SCORE DECOMPOSITION & BENCHMARKING
+# SLIDE 2 — BUBBLE CHART: HCI+ vs GDP per capita
+# ══════════════════════════════════════════════════════════════════════════════
+s2_bubble = prs.slides.add_slide(prs.slide_layouts[6])
+shape_rect(s2_bubble, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
+
+# Header
+shape_rect(s2_bubble, Inches(0), Inches(0), Inches(13.333), Inches(1.0), PRIMARY)
+text_box(s2_bubble, Inches(0.6), Inches(0.15), Inches(8), Inches(0.7),
+         "Kenya in Global Context  |  HCI+ vs GDP per Capita", size=24, color=WHITE, bold=True,
+         font="Calibri Light", anchor=MSO_ANCHOR.MIDDLE)
+text_box(s2_bubble, Inches(9.5), Inches(0.15), Inches(3.5), Inches(0.7),
+         "170.8 / 325", size=22, color=TEAL, bold=True,
+         align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
+
+# Main panel
+bubble_panel = shape_rounded(s2_bubble, Inches(0.5), Inches(1.3), Inches(8.8), Inches(5.4), WHITE)
+
+text_box(s2_bubble, Inches(0.8), Inches(1.5), Inches(7), Inches(0.3),
+         "HCI+ SCORE vs LOG GDP PER CAPITA (PPP)", size=11, color=MEDIUM_GRAY, bold=True)
+shape_rect(s2_bubble, Inches(0.8), Inches(1.85), Inches(2.5), Pt(3), TEAL)
+text_box(s2_bubble, Inches(0.8), Inches(1.95), Inches(7), Inches(0.25),
+         "Each bubble represents a country. Kenya (orange) outperforms many countries at similar income levels.",
+         size=9, color=MEDIUM_GRAY)
+
+# Bubble chart — HCI+ (Y) vs GDP per capita log (X)
+# Group countries by region for color coding
+# We'll use separate series per region for color control
+
+bubble_data = BubbleChartData()
+
+# Define country data by region
+regions_data = {
+    'Sub-Saharan Africa': [
+        ('Kenya', 8.67, 170.8, 15),       # larger bubble for Kenya
+        ('Rwanda', 8.09, 156.9, 5),
+        ('Ghana', 8.86, 152.9, 5),
+        ('Uganda', 7.97, 145.2, 5),
+        ('Nigeria', 8.64, 130.7, 5),
+        ('Ethiopia', 7.97, 123.4, 5),
+        ('South Africa', 9.52, 132.1, 5),
+        ('Mauritius', 10.22, 201.0, 3),
+        ('Botswana', 9.80, 156.9, 3),
+        ('Tanzania', 8.22, 132.6, 5),
+        ('Senegal', 8.41, 109.4, 3),
+    ],
+    'East Asia & Pacific': [
+        ('Japan', 10.74, 284.3, 5),
+        ('Singapore', 11.79, 282.4, 3),
+        ('Korea, Rep.', 10.83, 266.9, 5),
+        ('China', 10.08, 219.8, 10),
+        ('Vietnam', 9.25, 206.8, 5),
+        ('Thailand', 9.99, 202.3, 5),
+        ('Indonesia', 9.58, 175.4, 8),
+        ('Philippines', 9.25, 175.4, 5),
+        ('Australia', 11.00, 270.0, 3),
+    ],
+    'Europe & Central Asia': [
+        ('Germany', 11.05, 256.5, 5),
+        ('France', 10.91, 251.2, 5),
+        ('Sweden', 11.05, 269.3, 3),
+        ('Poland', 10.72, 259.5, 3),
+        ('Turkiye', 10.32, 210.5, 5),
+        ('Albania', 9.85, 203.5, 3),
+        ('Kyrgyz Republic', 8.86, 197.5, 3),
+    ],
+    'Latin America & Caribbean': [
+        ('Chile', 10.32, 226.2, 3),
+        ('Brazil', 9.89, 202.9, 8),
+        ('Mexico', 10.00, 193.5, 5),
+        ('Colombia', 9.83, 197.6, 5),
+        ('Jamaica', 9.24, 200.1, 3),
+        ('Nicaragua', 8.94, 178.1, 3),
+    ],
+    'South Asia & MENA': [
+        ('India', 9.19, 158.8, 10),
+        ('Bangladesh', 9.05, 146.7, 5),
+        ('Sri Lanka', 9.73, 182.6, 3),
+        ('Jordan', 9.16, 170.2, 3),
+        ('Egypt', 9.73, 161.2, 5),
+        ('Morocco', 9.11, 147.1, 3),
+    ],
+}
+
+region_colors = {
+    'Sub-Saharan Africa': TEAL,
+    'East Asia & Pacific': BLUE,
+    'Europe & Central Asia': RGBColor(0x6B, 0x5B, 0x95),  # Purple
+    'Latin America & Caribbean': RGBColor(0x2E, 0xA0, 0x6A),  # Green
+    'South Asia & MENA': RGBColor(0x99, 0x66, 0x33),  # Brown
+}
+
+for region, countries_list in regions_data.items():
+    series = bubble_data.add_series(region)
+    for name, gdp, score, size in countries_list:
+        series.add_data_point(gdp, score, size)
+
+bcf = s2_bubble.shapes.add_chart(
+    XL_CHART_TYPE.BUBBLE, Inches(0.8), Inches(2.2), Inches(8.2), Inches(4.2),
+    bubble_data
+)
+bc = bcf.chart
+bc.has_legend = True
+bc.legend.position = XL_LEGEND_POSITION.BOTTOM
+bc.legend.include_in_layout = False
+bc.legend.font.size = Pt(9)
+bc.legend.font.name = "Calibri"
+
+# Style axes
+bc.value_axis.has_title = True
+bc.value_axis.axis_title.text_frame.paragraphs[0].text = "HCI+ Score"
+bc.value_axis.axis_title.text_frame.paragraphs[0].font.size = Pt(10)
+bc.value_axis.axis_title.text_frame.paragraphs[0].font.name = "Calibri"
+bc.value_axis.minimum_scale = 80
+bc.value_axis.maximum_scale = 300
+bc.value_axis.major_gridlines.format.line.color.rgb = RGBColor(0xEE, 0xEE, 0xEE)
+bc.value_axis.tick_labels.font.size = Pt(9)
+
+bc.category_axis.has_title = True
+bc.category_axis.axis_title.text_frame.paragraphs[0].text = "Log GDP per Capita (PPP)"
+bc.category_axis.axis_title.text_frame.paragraphs[0].font.size = Pt(10)
+bc.category_axis.axis_title.text_frame.paragraphs[0].font.name = "Calibri"
+bc.category_axis.minimum_scale = 7.5
+bc.category_axis.maximum_scale = 12.0
+bc.category_axis.tick_labels.font.size = Pt(9)
+
+# Color each series by region
+for i, (region, color) in enumerate(region_colors.items()):
+    plot_series = bc.series[i]
+    plot_series.format.fill.solid()
+    plot_series.format.fill.fore_color.rgb = color
+
+# Highlight Kenya bubble (first point in SSA series) with orange
+bc.series[0].points[0].format.fill.solid()
+bc.series[0].points[0].format.fill.fore_color.rgb = ORANGE
+
+# RIGHT PANEL — Key context & annotations
+right_ctx = shape_rounded(s2_bubble, Inches(9.6), Inches(1.3), Inches(3.3), Inches(5.4), WHITE)
+shape_rect(s2_bubble, Inches(9.6), Inches(1.3), Pt(5), Inches(5.4), TEAL)
+
+text_box(s2_bubble, Inches(9.9), Inches(1.5), Inches(2.9), Inches(0.25),
+         "KENYA IN CONTEXT", size=11, color=TEAL, bold=True)
+
+# Kenya stats
+stats = [
+    ("HCI+ Score", "170.8", TEAL),
+    ("Global Rank", "#96 / 161", DARK_TEXT),
+    ("SSA Rank", "#3 / 39", ORANGE),
+    ("SSA Average", "128.4", MEDIUM_GRAY),
+    ("Global Average", "188.5", MEDIUM_GRAY),
+    ("LMI 75th Pctile", "160.1", MEDIUM_GRAY),
+]
+
+for j, (label, value, color) in enumerate(stats):
+    sy = Inches(1.9) + Inches(j * 0.55)
+    text_box(s2_bubble, Inches(9.9), sy, Inches(1.8), Inches(0.22),
+             label, size=9, color=MEDIUM_GRAY)
+    text_box(s2_bubble, Inches(11.5), sy, Inches(1.2), Inches(0.22),
+             value, size=11, color=color, bold=True, align=PP_ALIGN.RIGHT)
+    if j < len(stats) - 1:
+        shape_rect(s2_bubble, Inches(9.9), sy + Inches(0.35), Inches(2.8), Pt(1),
+                   RGBColor(0xEE, 0xEE, 0xEE))
+
+# Insight text
+text_box(s2_bubble, Inches(9.9), Inches(5.3), Inches(2.9), Inches(0.25),
+         "KEY INSIGHT", size=10, color=TEAL, bold=True)
+text_box(s2_bubble, Inches(9.9), Inches(5.6), Inches(2.9), Inches(0.95),
+         "Kenya (orange) scores well above the SSA average and "
+         "outperforms many countries at similar GDP levels. "
+         "The World Bank identifies Kenya as a top performer "
+         "relative to its income, alongside Jamaica, Kyrgyz Republic, and Vietnam.",
+         size=9, color=DARK_TEXT)
+
+add_footer(s2_bubble, 1)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SLIDE 3 — SCORE DECOMPOSITION & BENCHMARKING
 # ══════════════════════════════════════════════════════════════════════════════
 s2 = prs.slides.add_slide(prs.slide_layouts[6])
 shape_rect(s2, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
@@ -409,11 +585,11 @@ text_box(s2, Inches(7.1), Inches(5.7), Inches(5.4), Inches(0.85),
          "Kenya is identified as a top performer relative to its income level.",
          size=10, color=DARK_TEXT)
 
-add_footer(s2, 1)
+add_footer(s2, 2)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SLIDE 3 — HEALTH COMPONENT (filled/hollow dots + progress bars)
+# SLIDE 4 — HEALTH COMPONENT (filled/hollow dots + progress bars)
 # ══════════════════════════════════════════════════════════════════════════════
 s3 = prs.slides.add_slide(prs.slide_layouts[6])
 shape_rect(s3, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
@@ -526,11 +702,11 @@ hc.category_axis.tick_labels.font.name = "Calibri"
 hc.value_axis.visible = False
 hc.value_axis.has_major_gridlines = False
 
-add_footer(s3, 2)
+add_footer(s3, 3)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SLIDE 4 — EDUCATION COMPONENT
+# SLIDE 5 — EDUCATION COMPONENT
 # ══════════════════════════════════════════════════════════════════════════════
 s4 = prs.slides.add_slide(prs.slide_layouts[6])
 shape_rect(s4, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
@@ -631,11 +807,11 @@ text_box(s4, Inches(8.6), Inches(5.2), Inches(4), Inches(1.4),
          "offers room for growth.",
          size=10, color=DARK_TEXT)
 
-add_footer(s4, 3)
+add_footer(s4, 4)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SLIDE 5 — EMPLOYMENT + GENDER GAP (diverging bars)
+# SLIDE 6 — EMPLOYMENT + GENDER GAP (diverging bars)
 # ══════════════════════════════════════════════════════════════════════════════
 s5 = prs.slides.add_slide(prs.slide_layouts[6])
 shape_rect(s5, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
@@ -798,11 +974,11 @@ text_box(s5, Inches(8.6), Inches(5.6), Inches(4), Inches(1.1),
          "boost Kenya's overall HCI+ score.",
          size=10, color=DARK_TEXT)
 
-add_footer(s5, 4)
+add_footer(s5, 5)
 
 
 # ── Save ──────────────────────────────────────────────────────────────────────
-output_path = "/home/user/arcidiaconom.github.io/Kenya_HCI_Plus_2025_v2.pptx"
+output_path = "/home/user/arcidiaconom.github.io/Kenya_HCI_Plus_2025_v3.pptx"
 prs.save(output_path)
 print(f"Saved: {output_path}")
 print(f"Slides: {len(prs.slides)}")
