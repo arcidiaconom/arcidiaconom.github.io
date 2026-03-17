@@ -233,71 +233,74 @@ text_box(s2, Inches(0.8), Inches(1.95), Inches(7), Inches(0.25),
 # Bubble chart data — EAP countries colored, all others faded gray
 bubble_data = BubbleChartData()
 
+# Uniform bubble size for all countries
+BSIZE = 5
+
 # Series 1: Non-EAP countries (gray/transparent)
 non_eap_countries = [
     # SSA
-    ('Nigeria', 8.64, 130.7, 5), ('South Africa', 9.52, 132.1, 5),
-    ('Kenya', 8.67, 170.8, 5), ('Ethiopia', 7.97, 123.4, 5),
-    ('Ghana', 8.86, 152.9, 3), ('Rwanda', 8.09, 156.9, 3),
-    ('Uganda', 7.97, 145.2, 3), ('Tanzania', 8.22, 132.6, 3),
-    ('Mauritius', 10.22, 201.0, 3), ('Senegal', 8.41, 109.4, 3),
-    ('Botswana', 9.80, 156.9, 3),
+    ('Nigeria', 8.64, 130.7), ('South Africa', 9.52, 132.1),
+    ('Kenya', 8.67, 170.8), ('Ethiopia', 7.97, 123.4),
+    ('Ghana', 8.86, 152.9), ('Rwanda', 8.09, 156.9),
+    ('Uganda', 7.97, 145.2), ('Tanzania', 8.22, 132.6),
+    ('Mauritius', 10.22, 201.0), ('Senegal', 8.41, 109.4),
+    ('Botswana', 9.80, 156.9),
     # Europe & Central Asia
-    ('Germany', 11.05, 256.5, 5), ('France', 10.91, 251.2, 5),
-    ('Sweden', 11.05, 269.3, 3), ('Poland', 10.72, 259.5, 3),
-    ('Netherlands', 11.17, 269.7, 3), ('Turkiye', 10.32, 210.5, 5),
-    ('Albania', 9.85, 203.5, 3), ('Kyrgyz Republic', 8.86, 197.5, 3),
-    ('Romania', 10.40, 221.3, 3), ('Georgia', 9.73, 204.7, 3),
+    ('Germany', 11.05, 256.5), ('France', 10.91, 251.2),
+    ('Sweden', 11.05, 269.3), ('Poland', 10.72, 259.5),
+    ('Netherlands', 11.17, 269.7), ('Turkiye', 10.32, 210.5),
+    ('Albania', 9.85, 203.5), ('Kyrgyz Republic', 8.86, 197.5),
+    ('Romania', 10.40, 221.3), ('Georgia', 9.73, 204.7),
     # Latin America
-    ('Chile', 10.32, 226.2, 3), ('Brazil', 9.89, 202.9, 8),
-    ('Mexico', 10.00, 193.5, 5), ('Colombia', 9.83, 197.6, 5),
-    ('Argentina', 10.10, 205.3, 5), ('Jamaica', 9.24, 200.1, 3),
-    ('Nicaragua', 8.94, 178.1, 3),
+    ('Chile', 10.32, 226.2), ('Brazil', 9.89, 202.9),
+    ('Mexico', 10.00, 193.5), ('Colombia', 9.83, 197.6),
+    ('Argentina', 10.10, 205.3), ('Jamaica', 9.24, 200.1),
+    ('Nicaragua', 8.94, 178.1),
     # South Asia & MENA
-    ('India', 9.19, 158.8, 10), ('Bangladesh', 9.05, 146.7, 5),
-    ('Sri Lanka', 9.73, 182.6, 3), ('Pakistan', 8.47, 99.3, 5),
-    ('Jordan', 9.16, 170.2, 3), ('Egypt', 9.73, 161.2, 5),
-    ('Morocco', 9.11, 147.1, 3), ('Iran', 10.17, 196.3, 5),
+    ('India', 9.19, 158.8), ('Bangladesh', 9.05, 146.7),
+    ('Sri Lanka', 9.73, 182.6), ('Pakistan', 8.47, 99.3),
+    ('Jordan', 9.16, 170.2), ('Egypt', 9.73, 161.2),
+    ('Morocco', 9.11, 147.1), ('Iran', 10.17, 196.3),
     # North America
-    ('United States', 11.20, 251.2, 8), ('Canada', 10.98, 257.3, 5),
+    ('United States', 11.20, 251.2), ('Canada', 10.98, 257.3),
 ]
 
 # Series 2: EAP countries (colored)
 eap_countries = [
-    ('Japan', 10.74, 284.3, 8),
-    ('Singapore', 11.79, 282.4, 3),
-    ('Korea, Rep.', 10.83, 266.9, 5),
-    ('Australia', 11.00, 270.0, 5),
-    ('New Zealand', 10.78, 263.1, 3),
-    ('Hong Kong', 11.10, 258.4, 3),
-    ('Macao', 11.63, 255.9, 3),
-    ('China', 10.08, 219.8, 12),
-    ('Vietnam', 9.58, 215.8, 5),
-    ('Mongolia', 9.73, 209.5, 3),
-    ('Brunei', 11.28, 207.6, 3),
-    ('Thailand', 9.99, 202.3, 5),
-    ('Malaysia', 10.44, 201.3, 5),
-    ('Fiji', 9.55, 192.8, 3),
-    ('Indonesia', 9.58, 175.4, 10),
-    ('Philippines', 9.25, 175.4, 5),
-    ('Tonga', 8.86, 175.8, 3),
-    ('Tuvalu', 8.67, 166.1, 3),
-    ('Kiribati', 8.09, 161.9, 3),
-    ('Myanmar', 8.57, 149.2, 5),
-    ('Cambodia', 8.86, 138.9, 5),
-    ('Lao PDR', 9.06, 135.6, 3),
-    ('Vanuatu', 8.06, 136.4, 3),
+    ('Japan', 10.74, 284.3),
+    ('Singapore', 11.79, 282.4),
+    ('Korea, Rep.', 10.83, 266.9),
+    ('Australia', 11.00, 270.0),
+    ('New Zealand', 10.78, 263.1),
+    ('Hong Kong', 11.10, 258.4),
+    ('Macao', 11.63, 255.9),
+    ('China', 10.08, 219.8),
+    ('Vietnam', 9.58, 215.8),
+    ('Mongolia', 9.73, 209.5),
+    ('Brunei', 11.28, 207.6),
+    ('Thailand', 9.99, 202.3),
+    ('Malaysia', 10.44, 201.3),
+    ('Fiji', 9.55, 192.8),
+    ('Indonesia', 9.58, 175.4),
+    ('Philippines', 9.25, 175.4),
+    ('Tonga', 8.86, 175.8),
+    ('Tuvalu', 8.67, 166.1),
+    ('Kiribati', 8.09, 161.9),
+    ('Myanmar', 8.57, 149.2),
+    ('Cambodia', 8.86, 138.9),
+    ('Lao PDR', 9.06, 135.6),
+    ('Vanuatu', 8.06, 136.4),
 ]
 
 # Add non-EAP as first series (will be gray)
 s_non_eap = bubble_data.add_series('Other Regions')
-for name, gdp, score, size in non_eap_countries:
-    s_non_eap.add_data_point(gdp, score, size)
+for name, gdp, score in non_eap_countries:
+    s_non_eap.add_data_point(gdp, score, BSIZE)
 
 # Add EAP as second series (will be blue)
 s_eap = bubble_data.add_series('East Asia & Pacific')
-for name, gdp, score, size in eap_countries:
-    s_eap.add_data_point(gdp, score, size)
+for name, gdp, score in eap_countries:
+    s_eap.add_data_point(gdp, score, BSIZE)
 
 bcf = s2.shapes.add_chart(
     XL_CHART_TYPE.BUBBLE, Inches(0.8), Inches(2.2), Inches(8.2), Inches(4.2),
@@ -464,76 +467,158 @@ for i, (comp, (actual, bench, max_v)) in enumerate(benchmarks.items()):
 right_panel = shape_rounded(s3, Inches(6.8), Inches(1.3), Inches(6.0), Inches(5.4), WHITE)
 
 text_box(s3, Inches(7.1), Inches(1.5), Inches(5), Inches(0.3),
-         "TOP EAP ECONOMIES BY HCI+ SCORE", size=11, color=MEDIUM_GRAY, bold=True)
+         "ALL EAP ECONOMIES BY HCI+ SCORE", size=11, color=MEDIUM_GRAY, bold=True)
 shape_rect(s3, Inches(7.1), Inches(1.85), Inches(2), Pt(3), EAP_ACCENT)
 
+# All 27 EAP economies sorted ascending
 eap_rank_data = CategoryChartData()
 eap_rank_data.categories = [
-    'Lao PDR', 'Vanuatu', 'Cambodia', 'Myanmar', 'Indonesia',
-    'Philippines', 'Fiji', 'Thailand', 'Malaysia', 'Mongolia',
-    'Vietnam', 'China', 'Palau', 'Macao', 'Hong Kong',
-    'New Zealand', 'Korea, Rep.', 'Australia', 'Singapore', 'Japan'
+    'Lao PDR', 'Vanuatu', 'Cambodia', 'Marshall Is.', 'Myanmar',
+    'Nauru', 'Kiribati', 'Samoa', 'Tuvalu', 'Tonga',
+    'Indonesia', 'Philippines', 'Fiji', 'Malaysia', 'Thailand',
+    'Brunei', 'Mongolia', 'Vietnam', 'China', 'Palau',
+    'Macao', 'Hong Kong', 'New Zealand', 'Korea, Rep.',
+    'Australia', 'Singapore', 'Japan'
 ]
 eap_rank_data.add_series('HCI+ Score', (
-    135.6, 136.4, 138.9, 149.2, 175.4,
-    175.4, 192.8, 202.3, 201.3, 209.5,
-    215.8, 219.8, 228.6, 255.9, 258.4,
-    263.1, 266.9, 270.0, 282.4, 284.3
+    135.6, 136.4, 138.9, 145.2, 149.2,
+    161.6, 161.9, 164.4, 166.1, 175.8,
+    175.4, 175.4, 192.8, 201.3, 202.3,
+    207.6, 209.5, 215.8, 219.8, 228.6,
+    255.9, 258.4, 263.1, 266.9,
+    270.0, 282.4, 284.3
 ))
 
 rcf = s3.shapes.add_chart(
-    XL_CHART_TYPE.BAR_CLUSTERED, Inches(7.1), Inches(2.0), Inches(5.4), Inches(3.5),
+    XL_CHART_TYPE.BAR_CLUSTERED, Inches(7.1), Inches(2.0), Inches(5.4), Inches(4.2),
     eap_rank_data
 )
 rc = rcf.chart
 rc.has_legend = False
 rplot = rc.plots[0]
-rplot.gap_width = 30
+rplot.gap_width = 20
 
 series = rplot.series[0]
 series.format.fill.solid()
 series.format.fill.fore_color.rgb = EAP_ACCENT
 
-# World avg line would be at 188.5 — highlight countries above/below
-# Color bottom 6 (below world avg) differently
-for idx in range(6):  # Lao, Vanuatu, Cambodia, Myanmar, Indonesia, Philippines
+# Color countries below world avg (188.5) differently — first 12
+for idx in range(12):  # Lao through Philippines
     series.points[idx].format.fill.solid()
     series.points[idx].format.fill.fore_color.rgb = CORAL
 
-rc.category_axis.tick_labels.font.size = Pt(8)
+rc.category_axis.tick_labels.font.size = Pt(7)
 rc.category_axis.tick_labels.font.name = "Calibri"
 rc.value_axis.maximum_scale = 300
 rc.value_axis.major_gridlines.format.line.color.rgb = RGBColor(0xEE, 0xEE, 0xEE)
 rc.value_axis.format.line.color.rgb = DIVIDER
-rc.value_axis.tick_labels.font.size = Pt(8)
+rc.value_axis.tick_labels.font.size = Pt(7)
 
 series.has_data_labels = True
-series.data_labels.font.size = Pt(7)
+series.data_labels.font.size = Pt(6)
 series.data_labels.font.name = "Calibri"
 series.data_labels.font.bold = True
 series.data_labels.number_format = '0.0'
 
 # Legend
-shape_rect(s3, Inches(7.1), Inches(5.65), Inches(0.25), Inches(0.12), EAP_ACCENT)
-text_box(s3, Inches(7.45), Inches(5.6), Inches(1.5), Inches(0.2),
-         "Above world avg", size=8, color=DARK_TEXT)
-shape_rect(s3, Inches(9.0), Inches(5.65), Inches(0.25), Inches(0.12), CORAL)
-text_box(s3, Inches(9.35), Inches(5.6), Inches(1.5), Inches(0.2),
+shape_rect(s3, Inches(7.1), Inches(6.3), Inches(0.25), Inches(0.12), EAP_ACCENT)
+text_box(s3, Inches(7.45), Inches(6.25), Inches(1.5), Inches(0.2),
+         "Above world avg (188.5)", size=8, color=DARK_TEXT)
+shape_rect(s3, Inches(9.3), Inches(6.3), Inches(0.25), Inches(0.12), CORAL)
+text_box(s3, Inches(9.65), Inches(6.25), Inches(1.5), Inches(0.2),
          "Below world avg", size=8, color=DARK_TEXT)
-
-# Insight
-text_box(s3, Inches(7.1), Inches(5.9), Inches(5.5), Inches(0.8),
-         "KEY INSIGHT: EAP outperforms the world average in all three components. "
-         "Education is the strongest pillar (118.1 vs world 107.4). "
-         "However, a 2:1 gap exists between top (Japan, 284.3) and bottom performers "
-         "(Lao PDR, 135.6), reflecting wide income and development disparities.",
-         size=10, color=DARK_TEXT)
 
 add_footer(s3, 2)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SLIDE 4 — HEALTH COMPONENT
+# SLIDE 4 — COUNTRY-BY-COUNTRY COMPONENT DECOMPOSITION
+# ══════════════════════════════════════════════════════════════════════════════
+s3b = prs.slides.add_slide(prs.slide_layouts[6])
+shape_rect(s3b, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
+
+shape_rect(s3b, Inches(0), Inches(0), Inches(13.333), Inches(1.0), PRIMARY)
+text_box(s3b, Inches(0.6), Inches(0.15), Inches(8), Inches(0.7),
+         "East Asia & Pacific  |  Country Decomposition", size=24, color=WHITE, bold=True,
+         font="Calibri Light", anchor=MSO_ANCHOR.MIDDLE)
+text_box(s3b, Inches(9.5), Inches(0.15), Inches(3.5), Inches(0.7),
+         "Health + Education + Employment", size=16, color=EAP_ACCENT, bold=True,
+         align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
+
+main_panel = shape_rounded(s3b, Inches(0.5), Inches(1.2), Inches(12.3), Inches(5.5), WHITE)
+
+text_box(s3b, Inches(0.8), Inches(1.35), Inches(8), Inches(0.3),
+         "COMPONENT DECOMPOSITION BY ECONOMY (sorted by total HCI+)", size=11, color=MEDIUM_GRAY, bold=True)
+shape_rect(s3b, Inches(0.8), Inches(1.65), Inches(2.5), Pt(3), EAP_ACCENT)
+
+# All 27 EAP countries sorted ascending by HCI+ total
+decomp_data = CategoryChartData()
+decomp_data.categories = [
+    'Lao PDR', 'Vanuatu', 'Cambodia', 'Marshall Is.', 'Myanmar',
+    'Nauru', 'Kiribati', 'Samoa', 'Tuvalu', 'Tonga',
+    'Indonesia', 'Philippines', 'Fiji', 'Malaysia', 'Thailand',
+    'Brunei', 'Mongolia', 'Vietnam', 'China', 'Palau',
+    'Macao', 'Hong Kong', 'New Zealand', 'Korea, Rep.',
+    'Australia', 'Singapore', 'Japan'
+]
+# Health component
+decomp_data.add_series('Health', (
+    38.8, 39.3, 40.6, 36.4, 38.5,
+    35.9, 41.0, 43.3, 40.7, 44.4,
+    40.7, 40.0, 41.7, 42.4, 42.5,
+    44.4, 42.5, 42.5, 46.5, 41.0,
+    47.9, 47.4, 46.6, 48.8,
+    48.0, 47.7, 47.5
+))
+# Education component
+decomp_data.add_series('Education', (
+    66.5, 84.2, 69.9, 88.8, 76.3,
+    82.2, 96.7, 102.8, 102.5, 100.4,
+    96.5, 98.4, 120.3, 111.1, 114.3,
+    117.4, 128.1, 123.8, 127.5, 132.6,
+    147.9, 162.5, 155.0, 170.8,
+    160.8, 179.4, 172.5
+))
+# Employment component
+decomp_data.add_series('Employment', (
+    30.3, 13.0, 28.4, 20.0, 34.3,
+    43.5, 24.2, 18.3, 23.0, 31.0,
+    38.1, 37.1, 30.8, 47.8, 45.5,
+    45.8, 38.9, 49.5, 45.8, 55.0,
+    60.1, 48.5, 61.5, 47.4,
+    61.2, 55.3, 64.4
+))
+
+dcf = s3b.shapes.add_chart(
+    XL_CHART_TYPE.BAR_STACKED, Inches(0.8), Inches(1.8), Inches(11.8), Inches(4.7),
+    decomp_data
+)
+dc = dcf.chart
+dc.has_legend = True
+dc.legend.position = XL_LEGEND_POSITION.BOTTOM
+dc.legend.include_in_layout = False
+dc.legend.font.size = Pt(9)
+dc.legend.font.name = "Calibri"
+
+dplot = dc.plots[0]
+dplot.gap_width = 20
+dcolors = [TEAL, BLUE, ORANGE]
+for i, ds in enumerate(dplot.series):
+    ds.format.fill.solid()
+    ds.format.fill.fore_color.rgb = dcolors[i]
+
+dc.category_axis.tick_labels.font.size = Pt(7)
+dc.category_axis.tick_labels.font.name = "Calibri"
+dc.value_axis.maximum_scale = 300
+dc.value_axis.major_gridlines.format.line.color.rgb = RGBColor(0xEE, 0xEE, 0xEE)
+dc.value_axis.format.line.color.rgb = DIVIDER
+dc.value_axis.tick_labels.font.size = Pt(8)
+
+add_footer(s3b, 3)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SLIDE 5 — HEALTH COMPONENT
 # ══════════════════════════════════════════════════════════════════════════════
 s4 = prs.slides.add_slide(prs.slide_layouts[6])
 shape_rect(s4, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
@@ -645,11 +730,11 @@ hc.category_axis.tick_labels.font.name = "Calibri"
 hc.value_axis.visible = False
 hc.value_axis.has_major_gridlines = False
 
-add_footer(s4, 3)
+add_footer(s4, 4)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SLIDE 5 — EDUCATION COMPONENT
+# SLIDE 6 — EDUCATION COMPONENT
 # ══════════════════════════════════════════════════════════════════════════════
 s5 = prs.slides.add_slide(prs.slide_layouts[6])
 shape_rect(s5, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
@@ -667,17 +752,22 @@ text_box(s5, Inches(0.6), Inches(1.35), Inches(8), Inches(0.4),
          "Education captures learning quality, years of schooling, pre-primary education, and tertiary enrollment.",
          size=11, color=MEDIUM_GRAY)
 
-# Four metric cards
+# Four metric cards with world avg and best EAP
+# Format: (label, value, unit, num_val, max_val, color, world_avg, best_eap_label, best_eap_val)
 metrics = [
-    ("Expected Years\nof Schooling", "10.8", "years (EAP avg)", 10.8, 14, BLUE),
-    ("Harmonized Learning\nOutcomes", "436", "HLO score (out of 625)", 436, 625, RGBColor(0x00, 0x5A, 0x9E)),
-    ("Pre-Primary\nEducation", "0.59", "learning-adj. years", 0.59, 1.0, TEAL),
-    ("Tertiary\nEnrollment", "37.4%", "gross enrollment rate", 37.4, 100, ORANGE),
+    ("Expected Years\nof Schooling", "10.8", "years (EAP avg)", 10.8, 14, BLUE,
+     "World: 10.1 yrs", "Best: Japan 12.0"),
+    ("Harmonized Learning\nOutcomes", "436", "HLO score (out of 625)", 436, 625, RGBColor(0x00, 0x5A, 0x9E),
+     "World: 411", "Best: Singapore 594"),
+    ("Pre-Primary\nEducation", "0.59", "learning-adj. years", 0.59, 1.0, TEAL,
+     "World: 0.46 yrs", "Best: Singapore 0.91"),
+    ("Tertiary\nEnrollment", "37.4%", "gross enrollment rate", 37.4, 100, ORANGE,
+     "World: 32.6%", "Best: Korea 76.9%"),
 ]
 
-for i, (label, value, unit, num_val, max_val, color) in enumerate(metrics):
+for i, (label, value, unit, num_val, max_val, color, world_lbl, best_lbl) in enumerate(metrics):
     x = Inches(0.5) + i * Inches(3.15)
-    card = shape_rounded(s5, x, Inches(2.0), Inches(2.95), Inches(2.5), WHITE)
+    card = shape_rounded(s5, x, Inches(2.0), Inches(2.95), Inches(2.9), WHITE)
     shape_rect(s5, x, Inches(2.0), Inches(2.95), Pt(4), color)
 
     text_box(s5, x + Inches(0.15), Inches(2.2), Inches(2.65), Inches(0.5),
@@ -692,16 +782,18 @@ for i, (label, value, unit, num_val, max_val, color) in enumerate(metrics):
     draw_horizontal_bar(s5, x + Inches(0.15), Inches(3.85), Inches(2.65), Inches(0.12),
                        num_val, max_val, color)
 
-    pct = num_val / max_val * 100
-    text_box(s5, x + Inches(0.15), Inches(4.05), Inches(2.65), Inches(0.2),
-             f"{pct:.0f}% of maximum", size=8, color=MEDIUM_GRAY)
+    # World average and best EAP
+    text_box(s5, x + Inches(0.15), Inches(4.1), Inches(2.65), Inches(0.2),
+             world_lbl, size=8, color=MEDIUM_GRAY)
+    text_box(s5, x + Inches(0.15), Inches(4.3), Inches(2.65), Inches(0.2),
+             best_lbl, size=8, color=EAP_ACCENT, bold=True)
 
 # Bottom — Regional education comparison
-bottom = shape_rounded(s5, Inches(0.5), Inches(4.75), Inches(7.5), Inches(2.0), WHITE)
+bottom = shape_rounded(s5, Inches(0.5), Inches(5.15), Inches(7.5), Inches(1.6), WHITE)
 
-text_box(s5, Inches(0.8), Inches(4.9), Inches(5), Inches(0.3),
+text_box(s5, Inches(0.8), Inches(5.25), Inches(5), Inches(0.3),
          "EDUCATION COMPONENT: REGIONAL COMPARISON", size=11, color=MEDIUM_GRAY, bold=True)
-shape_rect(s5, Inches(0.8), Inches(5.2), Inches(2), Pt(2), BLUE)
+shape_rect(s5, Inches(0.8), Inches(5.55), Inches(2), Pt(2), BLUE)
 
 edu_comp_data = CategoryChartData()
 edu_comp_data.categories = [
@@ -712,7 +804,7 @@ edu_comp_data.categories = [
 edu_comp_data.add_series('Education Score', (64.1, 83.0, 98.3, 105.8, 118.1, 140.8, 107.4))
 
 ecf = s5.shapes.add_chart(
-    XL_CHART_TYPE.BAR_CLUSTERED, Inches(0.8), Inches(5.3), Inches(7.0), Inches(1.3),
+    XL_CHART_TYPE.BAR_CLUSTERED, Inches(0.8), Inches(5.6), Inches(7.0), Inches(1.05),
     edu_comp_data
 )
 ec = ecf.chart
@@ -737,12 +829,12 @@ ec.value_axis.visible = False
 ec.value_axis.has_major_gridlines = False
 
 # Insight
-insight = shape_rounded(s5, Inches(8.3), Inches(4.75), Inches(4.5), Inches(2.0), WHITE)
-shape_rect(s5, Inches(8.3), Inches(4.75), Pt(5), Inches(2.0), BLUE)
+insight = shape_rounded(s5, Inches(8.3), Inches(5.15), Inches(4.5), Inches(1.6), WHITE)
+shape_rect(s5, Inches(8.3), Inches(5.15), Pt(5), Inches(1.6), BLUE)
 
-text_box(s5, Inches(8.6), Inches(4.9), Inches(4), Inches(0.25),
+text_box(s5, Inches(8.6), Inches(5.25), Inches(4), Inches(0.25),
          "KEY INSIGHT", size=10, color=BLUE, bold=True)
-text_box(s5, Inches(8.6), Inches(5.2), Inches(4), Inches(1.4),
+text_box(s5, Inches(8.6), Inches(5.5), Inches(4), Inches(1.1),
          "Education is EAP's strongest component, scoring 118.1 \u2014 "
          "well above the world average (107.4) and second only to Europe & "
          "Central Asia (140.8). Singapore leads globally with an HLO of 594. "
@@ -751,11 +843,11 @@ text_box(s5, Inches(8.6), Inches(5.2), Inches(4), Inches(1.4),
          "remain areas for growth across the region.",
          size=10, color=DARK_TEXT)
 
-add_footer(s5, 4)
+add_footer(s5, 5)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SLIDE 6 — EMPLOYMENT + GENDER GAP
+# SLIDE 7 — EMPLOYMENT + GENDER GAP
 # ══════════════════════════════════════════════════════════════════════════════
 s6 = prs.slides.add_slide(prs.slide_layouts[6])
 shape_rect(s6, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
@@ -928,7 +1020,7 @@ text_box(s6, Inches(8.6), Inches(5.6), Inches(4), Inches(1.1),
          "while Cambodia (\u221214.2) and Thailand (\u22128.1) favor women.",
          size=10, color=DARK_TEXT)
 
-add_footer(s6, 5)
+add_footer(s6, 6)
 
 
 # ── Save ──────────────────────────────────────────────────────────────────────
