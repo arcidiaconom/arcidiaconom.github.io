@@ -234,7 +234,7 @@ text_box(s2, Inches(0.8), Inches(1.95), Inches(7), Inches(0.25),
 bubble_data = BubbleChartData()
 
 # Uniform bubble size for all countries
-BSIZE = 5
+BSIZE = 1
 
 # Series 1: Non-EAP countries (gray/transparent)
 non_eap_countries = [
@@ -847,7 +847,7 @@ add_footer(s5, 5)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SLIDE 7 — EMPLOYMENT + GENDER GAP
+# SLIDE 7 — EMPLOYMENT COMPONENT (styled like slides 5 & 6)
 # ══════════════════════════════════════════════════════════════════════════════
 s6 = prs.slides.add_slide(prs.slide_layouts[6])
 shape_rect(s6, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
@@ -855,7 +855,7 @@ shape_rect(s6, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
 shape_rect(s6, Inches(0), Inches(0), Inches(13.333), Inches(1.0), PRIMARY)
 shape_rect(s6, Inches(0), Inches(1.0), Inches(13.333), Pt(4), ORANGE)
 text_box(s6, Inches(0.6), Inches(0.15), Inches(8), Inches(0.7),
-         "Employment & Gender Gap  |  East Asia & Pacific", size=24, color=WHITE, bold=True,
+         "Employment Component  |  East Asia & Pacific", size=24, color=WHITE, bold=True,
          font="Calibri Light", anchor=MSO_ANCHOR.MIDDLE)
 text_box(s6, Inches(9.5), Inches(0.15), Inches(3.5), Inches(0.7),
          "Avg: 40.7 / 70", size=22, color=ORANGE, bold=True,
@@ -865,113 +865,46 @@ text_box(s6, Inches(0.6), Inches(1.35), Inches(10), Inches(0.4),
          "Employment captures labor force participation, wage employment, and skill accumulation for youth (15\u201324) and working-age (25\u201365).",
          size=11, color=MEDIUM_GRAY)
 
-# LEFT — Employment indicators table
-left = shape_rounded(s6, Inches(0.5), Inches(2.0), Inches(6.0), Inches(3.0), WHITE)
-shape_rect(s6, Inches(0.5), Inches(2.0), Inches(6.0), Pt(4), ORANGE)
-
-text_box(s6, Inches(0.8), Inches(2.2), Inches(3), Inches(0.25),
-         "EAP EMPLOYMENT INDICATORS (AVG)", size=11, color=ORANGE, bold=True)
-
-headers = [("", 2.0), ("EAP", 0.8), ("World", 0.8), ("Europe", 0.8)]
-hx = Inches(0.8)
-for label, w in headers:
-    color = MEDIUM_GRAY if label == "" else (EAP_ACCENT if label == "EAP" else MEDIUM_GRAY)
-    text_box(s6, hx, Inches(2.6), Inches(w), Inches(0.25),
-             label, size=10, color=color, bold=True,
-             align=PP_ALIGN.CENTER if label else PP_ALIGN.LEFT)
-    hx += Inches(w)
-
-shape_rect(s6, Inches(0.8), Inches(2.85), Inches(4.4), Pt(1), DIVIDER)
-
-rows_data = [
-    ("LFP Youth (15\u201324)",    "60.0%", "48.2%", "46.7%"),
-    ("Wage Emp. Youth",          "75.2%", "55.1%", "80.3%"),
-    ("LFP Working Age (25\u201365)", "75.3%", "72.6%", "78.2%"),
-    ("Wage Emp. Working Age",    "71.0%", "59.8%", "82.1%"),
+# Four metric cards — similar to slides 5 & 6
+emp_metrics = [
+    ("LFP Youth\n(15\u201324)", "60.0%", "EAP average", 60.0, 100, ORANGE,
+     "World: 48.2%", "Best: Nauru 79.7%"),
+    ("Wage Emp.\nYouth", "75.2%", "wage share of employment", 75.2, 100, RGBColor(0xC0, 0x65, 0x10),
+     "World: 55.1%", "Best: Japan 93.8%"),
+    ("LFP Working Age\n(25\u201365)", "75.3%", "EAP average", 75.3, 100, TEAL,
+     "World: 72.6%", "Best: Palau 87.8%"),
+    ("Wage Emp.\nWorking Age", "71.0%", "wage share of employment", 71.0, 100, EAP_ACCENT,
+     "World: 59.8%", "Best: Japan 92.4%"),
 ]
 
-for j, (ind, eap_v, world_v, eur_v) in enumerate(rows_data):
-    ry = Inches(2.95 + j * 0.45)
-    bg_color = WHITE if j % 2 == 0 else RGBColor(0xF9, 0xFA, 0xFB)
-    shape_rect(s6, Inches(0.8), ry, Inches(4.4), Inches(0.4), bg_color)
+for i, (label, value, unit, num_val, max_val, color, world_lbl, best_lbl) in enumerate(emp_metrics):
+    x = Inches(0.5) + i * Inches(3.15)
+    card = shape_rounded(s6, x, Inches(2.0), Inches(2.95), Inches(2.9), WHITE)
+    shape_rect(s6, x, Inches(2.0), Inches(2.95), Pt(4), color)
 
-    rx = Inches(0.8)
-    vals = [(ind, 2.0, DARK_TEXT, False), (eap_v, 0.8, EAP_ACCENT, True),
-            (world_v, 0.8, MEDIUM_GRAY, False), (eur_v, 0.8, MEDIUM_GRAY, False)]
-    for val, w, col, bld in vals:
-        text_box(s6, rx, ry + Inches(0.05), Inches(w), Inches(0.3),
-                 val, size=10, color=col, bold=bld,
-                 align=PP_ALIGN.CENTER if w == 0.8 else PP_ALIGN.LEFT)
-        rx += Inches(w)
+    text_box(s6, x + Inches(0.15), Inches(2.2), Inches(2.65), Inches(0.5),
+             label, size=11, color=DARK_TEXT, bold=True)
 
+    text_box(s6, x + Inches(0.15), Inches(2.8), Inches(2.65), Inches(0.7),
+             value, size=36, color=color, bold=True, font="Calibri Light")
 
-# RIGHT — Gender gap by region
-right = shape_rounded(s6, Inches(6.8), Inches(2.0), Inches(6.0), Inches(3.0), WHITE)
-shape_rect(s6, Inches(6.8), Inches(2.0), Inches(6.0), Pt(4), ORANGE)
+    text_box(s6, x + Inches(0.15), Inches(3.5), Inches(2.65), Inches(0.25),
+             unit, size=9, color=MEDIUM_GRAY)
 
-text_box(s6, Inches(7.1), Inches(2.15), Inches(5), Inches(0.3),
-         "GENDER GAP BY REGION (Male \u2212 Female HCI+)", size=11, color=ORANGE, bold=True)
-text_box(s6, Inches(7.1), Inches(2.4), Inches(5.5), Inches(0.25),
-         "Positive = men outperform; Negative = women outperform",
-         size=9, color=MEDIUM_GRAY)
+    draw_horizontal_bar(s6, x + Inches(0.15), Inches(3.85), Inches(2.65), Inches(0.12),
+                       num_val, max_val, color)
 
-gender_gap_data = CategoryChartData()
-gender_gap_data.categories = [
-    'Sub-Saharan\nAfrica', 'South\nAsia', 'MENA+',
-    'Latin America\n& Caribbean', 'East Asia\n& Pacific',
-    'Europe &\nCentral Asia'
-]
-# Approximate regional gender gaps (Male - Female HCI+)
-gender_gap_data.add_series('Gender Gap', (5.2, 15.8, 18.3, 4.1, 5.7, -1.2))
+    text_box(s6, x + Inches(0.15), Inches(4.1), Inches(2.65), Inches(0.2),
+             world_lbl, size=8, color=MEDIUM_GRAY)
+    text_box(s6, x + Inches(0.15), Inches(4.3), Inches(2.65), Inches(0.2),
+             best_lbl, size=8, color=EAP_ACCENT, bold=True)
 
-ggf = s6.shapes.add_chart(
-    XL_CHART_TYPE.BAR_CLUSTERED, Inches(7.1), Inches(2.7), Inches(5.4), Inches(2.1),
-    gender_gap_data
-)
-gg = ggf.chart
-gg.has_legend = False
-ggp = gg.plots[0]
-ggp.gap_width = 60
+# Bottom — Regional employment comparison
+bottom_left = shape_rounded(s6, Inches(0.5), Inches(5.15), Inches(7.5), Inches(1.6), WHITE)
 
-ggseries = ggp.series[0]
-ggseries.format.fill.solid()
-ggseries.format.fill.fore_color.rgb = DARK_BLUE
-
-# EAP bar highlighted
-ggseries.points[4].format.fill.solid()
-ggseries.points[4].format.fill.fore_color.rgb = EAP_ACCENT
-
-# Negative (women outperform) in coral
-for idx, val in enumerate([5.2, 15.8, 18.3, 4.1, 5.7, -1.2]):
-    if val < 0:
-        ggseries.points[idx].format.fill.solid()
-        ggseries.points[idx].format.fill.fore_color.rgb = CORAL
-
-ggseries.has_data_labels = True
-ggseries.data_labels.font.size = Pt(9)
-ggseries.data_labels.font.bold = True
-ggseries.data_labels.number_format = '+0.0;-0.0'
-
-gg.category_axis.tick_labels.font.size = Pt(9)
-gg.category_axis.tick_labels.font.name = "Calibri"
-gg.value_axis.has_major_gridlines = True
-gg.value_axis.major_gridlines.format.line.color.rgb = RGBColor(0xEE, 0xEE, 0xEE)
-gg.value_axis.tick_labels.font.size = Pt(8)
-
-# Legend
-shape_rect(s6, Inches(9.0), Inches(4.7), Inches(0.3), Inches(0.15), DARK_BLUE)
-text_box(s6, Inches(9.4), Inches(4.65), Inches(1.5), Inches(0.2),
-         "Men outperform", size=8, color=DARK_TEXT)
-shape_rect(s6, Inches(10.8), Inches(4.7), Inches(0.3), Inches(0.15), CORAL)
-text_box(s6, Inches(11.2), Inches(4.65), Inches(1.5), Inches(0.2),
-         "Women outperform", size=8, color=DARK_TEXT)
-
-# Bottom — EAP employment ranking + insight
-bottom_left = shape_rounded(s6, Inches(0.5), Inches(5.2), Inches(7.5), Inches(1.6), WHITE)
-
-text_box(s6, Inches(0.8), Inches(5.3), Inches(5), Inches(0.25),
-         "EMPLOYMENT COMPONENT: REGIONAL COMPARISON", size=10, color=MEDIUM_GRAY, bold=True)
-shape_rect(s6, Inches(0.8), Inches(5.55), Inches(1.5), Pt(2), ORANGE)
+text_box(s6, Inches(0.8), Inches(5.25), Inches(5), Inches(0.3),
+         "EMPLOYMENT COMPONENT: REGIONAL COMPARISON", size=11, color=MEDIUM_GRAY, bold=True)
+shape_rect(s6, Inches(0.8), Inches(5.55), Inches(2), Pt(2), ORANGE)
 
 emp_reg_data = CategoryChartData()
 emp_reg_data.categories = [
@@ -982,14 +915,14 @@ emp_reg_data.categories = [
 emp_reg_data.add_series('Employment Score', (23.4, 26.9, 35.0, 37.2, 40.7, 41.5, 46.6))
 
 emcf = s6.shapes.add_chart(
-    XL_CHART_TYPE.BAR_CLUSTERED, Inches(0.8), Inches(5.6), Inches(7.0), Inches(1.1),
+    XL_CHART_TYPE.BAR_CLUSTERED, Inches(0.8), Inches(5.6), Inches(7.0), Inches(1.05),
     emp_reg_data
 )
 emc = emcf.chart
 emc.has_legend = False
-emp = emc.plots[0]
-emp.gap_width = 50
-emseries = emp.series[0]
+emp_plot = emc.plots[0]
+emp_plot.gap_width = 50
+emseries = emp_plot.series[0]
 emseries.format.fill.solid()
 emseries.format.fill.fore_color.rgb = ORANGE
 emseries.points[4].format.fill.solid()
@@ -1007,20 +940,333 @@ emc.value_axis.visible = False
 emc.value_axis.has_major_gridlines = False
 
 # Insight
-insight6 = shape_rounded(s6, Inches(8.3), Inches(5.2), Inches(4.5), Inches(1.6), WHITE)
-shape_rect(s6, Inches(8.3), Inches(5.2), Pt(5), Inches(1.6), ORANGE)
-text_box(s6, Inches(8.6), Inches(5.3), Inches(4), Inches(0.25),
-         "KEY TAKEAWAY", size=10, color=ORANGE, bold=True)
-text_box(s6, Inches(8.6), Inches(5.6), Inches(4), Inches(1.1),
+insight6 = shape_rounded(s6, Inches(8.3), Inches(5.15), Inches(4.5), Inches(1.6), WHITE)
+shape_rect(s6, Inches(8.3), Inches(5.15), Pt(5), Inches(1.6), ORANGE)
+text_box(s6, Inches(8.6), Inches(5.25), Inches(4), Inches(0.25),
+         "KEY INSIGHT", size=10, color=ORANGE, bold=True)
+text_box(s6, Inches(8.6), Inches(5.5), Inches(4), Inches(1.1),
          "EAP's employment score (40.7) ranks 3rd among regions and exceeds "
-         "the world average (37.2). Youth LFP (60.0%) is notably high. "
-         "The EAP gender gap (+5.7) is moderate \u2014 better than South Asia "
-         "(+15.8) and MENA (+18.3), but wider than Europe (\u22121.2). "
-         "Countries like Indonesia (+22.6) and Fiji (+25.2) drive the gap, "
-         "while Cambodia (\u221214.2) and Thailand (\u22128.1) favor women.",
+         "the world average (37.2). Youth LFP (60.0%) is notably high \u2014 "
+         "well above the global average of 48.2%. Wage employment for "
+         "working-age adults (71.0%) also surpasses the world average "
+         "(59.8%). Japan leads in wage employment, while Palau and Nauru "
+         "post strong labor force participation rates.",
          size=10, color=DARK_TEXT)
 
 add_footer(s6, 6)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SLIDE 8 — GENDER SCATTER: Male HCI+ vs Female HCI+
+# ══════════════════════════════════════════════════════════════════════════════
+from pptx.chart.data import XyChartData
+
+# Colors inspired by the bar chart reference (steel blue & salmon/coral)
+SCATTER_BLUE = RGBColor(0x6B, 0x8C, 0xA3)   # steel blue — Male > Female
+SCATTER_RED  = RGBColor(0xE0, 0x7B, 0x73)    # salmon/coral — Female > Male
+
+s7 = prs.slides.add_slide(prs.slide_layouts[6])
+shape_rect(s7, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
+
+shape_rect(s7, Inches(0), Inches(0), Inches(13.333), Inches(1.0), PRIMARY)
+text_box(s7, Inches(0.6), Inches(0.15), Inches(8), Inches(0.7),
+         "Gender Analysis  |  Male vs Female HCI+", size=24, color=WHITE, bold=True,
+         font="Calibri Light", anchor=MSO_ANCHOR.MIDDLE)
+text_box(s7, Inches(9.5), Inches(0.15), Inches(3.5), Inches(0.7),
+         "East Asia & Pacific", size=22, color=EAP_ACCENT, bold=True,
+         align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
+
+# Main chart panel
+chart_panel = shape_rounded(s7, Inches(0.5), Inches(1.3), Inches(9.0), Inches(5.8), WHITE)
+
+text_box(s7, Inches(0.8), Inches(1.5), Inches(7), Inches(0.3),
+         "MALE HCI+ vs FEMALE HCI+ BY ECONOMY", size=11, color=MEDIUM_GRAY, bold=True)
+shape_rect(s7, Inches(0.8), Inches(1.85), Inches(2.5), Pt(3), EAP_ACCENT)
+text_box(s7, Inches(0.8), Inches(1.95), Inches(7), Inches(0.25),
+         "Countries above the 45\u00b0 line: Male HCI+ > Female HCI+. Below: Female HCI+ > Male HCI+.",
+         size=9, color=MEDIUM_GRAY)
+
+# Male vs Female HCI+ data for EAP countries
+# (country, female_hci_plus, male_hci_plus)
+gender_data = [
+    ('Japan',         277.5, 290.8),
+    ('Singapore',     284.1, 280.6),
+    ('Korea, Rep.',   258.9, 274.9),
+    ('Australia',     264.8, 275.2),
+    ('New Zealand',   262.7, 263.5),
+    ('Hong Kong',     253.8, 263.0),
+    ('Macao',         260.2, 251.6),
+    ('China',         225.4, 214.2),
+    ('Vietnam',       220.8, 210.8),
+    ('Mongolia',      214.2, 204.8),
+    ('Brunei',        211.0, 204.2),
+    ('Thailand',      210.5, 194.1),
+    ('Malaysia',      196.3, 206.3),
+    ('Fiji',          177.2, 208.4),
+    ('Indonesia',     158.7, 192.1),
+    ('Philippines',   171.8, 179.0),
+    ('Tonga',         175.2, 176.4),
+    ('Tuvalu',        173.4, 158.8),
+    ('Samoa',         164.2, 164.6),
+    ('Kiribati',      163.5, 160.3),
+    ('Myanmar',       140.3, 158.1),
+    ('Marshall Is.',  139.5, 150.9),
+    ('Cambodia',      150.0, 127.8),
+    ('Lao PDR',       130.5, 140.7),
+    ('Vanuatu',       128.0, 144.8),
+]
+
+# Split into two series: Male > Female (blue) and Female > Male (red)
+male_gt = [(n, f, m) for n, f, m in gender_data if m > f]
+female_gt = [(n, f, m) for n, f, m in gender_data if f >= m]
+
+xy_data = XyChartData()
+
+# Series 1: Male HCI+ > Female HCI+ (blue diamonds)
+s_male_gt = xy_data.add_series('Male HCI+ > Female HCI+')
+for name, female, male in male_gt:
+    s_male_gt.add_data_point(female, male)
+
+# Series 2: Female HCI+ > Male HCI+ (red diamonds)
+s_female_gt = xy_data.add_series('Female HCI+ \u2265 Male HCI+')
+for name, female, male in female_gt:
+    s_female_gt.add_data_point(female, male)
+
+scf = s7.shapes.add_chart(
+    XL_CHART_TYPE.XY_SCATTER, Inches(0.8), Inches(2.2), Inches(8.4), Inches(4.6),
+    xy_data
+)
+sc = scf.chart
+sc.has_legend = True
+sc.legend.position = XL_LEGEND_POSITION.BOTTOM
+sc.legend.include_in_layout = False
+sc.legend.font.size = Pt(9)
+sc.legend.font.name = "Calibri"
+
+# Style axes
+sc.value_axis.has_title = True
+sc.value_axis.axis_title.text_frame.paragraphs[0].text = "Male HCI+"
+sc.value_axis.axis_title.text_frame.paragraphs[0].font.size = Pt(11)
+sc.value_axis.axis_title.text_frame.paragraphs[0].font.name = "Calibri"
+sc.value_axis.axis_title.text_frame.paragraphs[0].font.bold = True
+sc.value_axis.minimum_scale = 120
+sc.value_axis.maximum_scale = 300
+sc.value_axis.major_gridlines.format.line.color.rgb = RGBColor(0xE8, 0xE8, 0xE8)
+sc.value_axis.major_gridlines.format.line.dash_style = 4  # dash
+sc.value_axis.tick_labels.font.size = Pt(9)
+
+sc.category_axis.has_title = True
+sc.category_axis.axis_title.text_frame.paragraphs[0].text = "Female HCI+"
+sc.category_axis.axis_title.text_frame.paragraphs[0].font.size = Pt(11)
+sc.category_axis.axis_title.text_frame.paragraphs[0].font.name = "Calibri"
+sc.category_axis.axis_title.text_frame.paragraphs[0].font.bold = True
+sc.category_axis.minimum_scale = 120
+sc.category_axis.maximum_scale = 300
+sc.category_axis.major_gridlines.format.line.color.rgb = RGBColor(0xE8, 0xE8, 0xE8)
+sc.category_axis.major_gridlines.format.line.dash_style = 4  # dash
+sc.category_axis.tick_labels.font.size = Pt(9)
+
+# Color series
+series_blue = sc.series[0]
+series_blue.format.fill.solid()
+series_blue.format.fill.fore_color.rgb = SCATTER_BLUE
+series_blue.format.line.color.rgb = SCATTER_BLUE
+series_blue.marker.style = 8  # diamond
+series_blue.marker.size = 8
+series_blue.marker.format.fill.solid()
+series_blue.marker.format.fill.fore_color.rgb = SCATTER_BLUE
+series_blue.marker.format.line.color.rgb = SCATTER_BLUE
+
+series_red = sc.series[1]
+series_red.format.fill.solid()
+series_red.format.fill.fore_color.rgb = SCATTER_RED
+series_red.format.line.color.rgb = SCATTER_RED
+series_red.marker.style = 8  # diamond
+series_red.marker.size = 8
+series_red.marker.format.fill.solid()
+series_red.marker.format.fill.fore_color.rgb = SCATTER_RED
+series_red.marker.format.line.color.rgb = SCATTER_RED
+
+# Add 45-degree reference line as a third series (light gray)
+diag_series_data = XyChartData()
+# Re-add existing series data (required by python-pptx)
+# We'll add the diagonal line using XML manipulation instead
+# Draw a thin light gray 45° line from (120,120) to (300,300) using shapes
+# Since chart coordinates don't map easily, we add a line series via XML
+
+# Add diagonal line via a third invisible series
+from lxml import etree
+
+# Access the chart XML to add a reference line series
+chart_part = sc.part
+chart_xml = chart_part._element
+
+# Find the scatterChart element
+ns = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
+ns_a = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+scatter_chart = chart_xml.find('.//' + qn('c:scatterChart'))
+
+if scatter_chart is not None:
+    # Create a new series for the 45-degree line
+    new_ser = etree.SubElement(scatter_chart, qn('c:ser'))
+
+    idx_el = etree.SubElement(new_ser, qn('c:idx'))
+    idx_el.set('val', '2')
+    order_el = etree.SubElement(new_ser, qn('c:order'))
+    order_el.set('val', '2')
+
+    # Series name
+    tx = etree.SubElement(new_ser, qn('c:tx'))
+    str_ref = etree.SubElement(tx, qn('c:strRef'))
+    f_el = etree.SubElement(str_ref, qn('c:f'))
+    f_el.text = ''
+    str_cache = etree.SubElement(str_ref, qn('c:strCache'))
+    pt_count = etree.SubElement(str_cache, qn('c:ptCount'))
+    pt_count.set('val', '1')
+    pt = etree.SubElement(str_cache, qn('c:pt'))
+    pt.set('idx', '0')
+    v_el = etree.SubElement(pt, qn('c:v'))
+    v_el.text = '45\u00b0 line'
+
+    # Series formatting: light gray line, no markers
+    spPr = etree.SubElement(new_ser, qn('c:spPr'))
+    ln = etree.SubElement(spPr, qn('a:ln'))
+    ln.set('w', '12700')  # 1pt line
+    solidFill = etree.SubElement(ln, qn('a:solidFill'))
+    srgbClr = etree.SubElement(solidFill, qn('a:srgbClr'))
+    srgbClr.set('val', 'CCCCCC')
+
+    # No markers
+    marker = etree.SubElement(new_ser, qn('c:marker'))
+    symbol = etree.SubElement(marker, qn('c:symbol'))
+    symbol.set('val', 'none')
+
+    # X values
+    xVal = etree.SubElement(new_ser, qn('c:xVal'))
+    numRef = etree.SubElement(xVal, qn('c:numRef'))
+    f_x = etree.SubElement(numRef, qn('c:f'))
+    f_x.text = ''
+    numCache_x = etree.SubElement(numRef, qn('c:numCache'))
+    ptCount_x = etree.SubElement(numCache_x, qn('c:ptCount'))
+    ptCount_x.set('val', '2')
+    for i, val in enumerate([120, 300]):
+        pt_x = etree.SubElement(numCache_x, qn('c:pt'))
+        pt_x.set('idx', str(i))
+        v_x = etree.SubElement(pt_x, qn('c:v'))
+        v_x.text = str(val)
+
+    # Y values
+    yVal = etree.SubElement(new_ser, qn('c:yVal'))
+    numRef_y = etree.SubElement(yVal, qn('c:numRef'))
+    f_y = etree.SubElement(numRef_y, qn('c:f'))
+    f_y.text = ''
+    numCache_y = etree.SubElement(numRef_y, qn('c:numCache'))
+    ptCount_y = etree.SubElement(numCache_y, qn('c:ptCount'))
+    ptCount_y.set('val', '2')
+    for i, val in enumerate([120, 300]):
+        pt_y = etree.SubElement(numCache_y, qn('c:pt'))
+        pt_y.set('idx', str(i))
+        v_y = etree.SubElement(pt_y, qn('c:v'))
+        v_y.text = str(val)
+
+    # Smooth line
+    smooth = etree.SubElement(new_ser, qn('c:smooth'))
+    smooth.set('val', '0')
+
+# Add country labels as text boxes overlaid on chart area
+# Chart area: left=0.8", top=2.2", width=8.4", height=4.6"
+# Data range: x (Female) 120-300, y (Male) 120-300
+chart_left = Inches(0.8)
+chart_top = Inches(2.2)
+chart_w = Inches(8.4)
+chart_h = Inches(4.6)
+# Approximate plot area within chart (accounting for axes/labels)
+plot_left = chart_left + Inches(0.6)
+plot_top = chart_top + Inches(0.15)
+plot_w = chart_w - Inches(1.0)
+plot_h = chart_h - Inches(0.7)
+data_min = 120
+data_max = 300
+
+def data_to_pos(female_val, male_val):
+    px = plot_left + int(plot_w * (female_val - data_min) / (data_max - data_min))
+    py = plot_top + int(plot_h * (1 - (male_val - data_min) / (data_max - data_min)))
+    return px, py
+
+# Add country code labels
+country_codes = {
+    'Japan': 'JPN', 'Singapore': 'SGP', 'Korea, Rep.': 'KOR',
+    'Australia': 'AUS', 'New Zealand': 'NZL', 'Hong Kong': 'HKG',
+    'Macao': 'MAC', 'China': 'CHN', 'Vietnam': 'VNM',
+    'Mongolia': 'MNG', 'Brunei': 'BRN', 'Thailand': 'THA',
+    'Malaysia': 'MYS', 'Fiji': 'FJI', 'Indonesia': 'IDN',
+    'Philippines': 'PHL', 'Tonga': 'TON', 'Tuvalu': 'TUV',
+    'Samoa': 'WSM', 'Kiribati': 'KIR', 'Myanmar': 'MMR',
+    'Marshall Is.': 'MHL', 'Cambodia': 'KHM', 'Lao PDR': 'LAO',
+    'Vanuatu': 'VUT',
+}
+
+for name, female, male in gender_data:
+    code = country_codes.get(name, name[:3].upper())
+    px, py = data_to_pos(female, male)
+    lbl_color = SCATTER_RED if female >= male else SCATTER_BLUE
+    text_box(s7, px - Inches(0.2), py - Inches(0.22), Inches(0.6), Inches(0.2),
+             code, size=7, color=lbl_color, bold=True, align=PP_ALIGN.CENTER)
+
+
+# RIGHT — Insight panel
+right_panel = shape_rounded(s7, Inches(9.8), Inches(1.3), Inches(3.1), Inches(5.8), WHITE)
+shape_rect(s7, Inches(9.8), Inches(1.3), Pt(5), Inches(5.8), EAP_ACCENT)
+
+text_box(s7, Inches(10.1), Inches(1.5), Inches(2.7), Inches(0.25),
+         "GENDER ANALYSIS", size=11, color=EAP_ACCENT, bold=True)
+
+# Legend items
+shape_rect(s7, Inches(10.1), Inches(1.9), Inches(0.25), Inches(0.15), SCATTER_BLUE)
+text_box(s7, Inches(10.45), Inches(1.87), Inches(2.3), Inches(0.2),
+         "Male HCI+ > Female HCI+", size=8, color=DARK_TEXT)
+shape_rect(s7, Inches(10.1), Inches(2.15), Inches(0.25), Inches(0.15), SCATTER_RED)
+text_box(s7, Inches(10.45), Inches(2.12), Inches(2.3), Inches(0.2),
+         "Female HCI+ \u2265 Male HCI+", size=8, color=DARK_TEXT)
+
+shape_rect(s7, Inches(10.1), Inches(2.45), Inches(2.7), Pt(1), DIVIDER)
+
+text_box(s7, Inches(10.1), Inches(2.6), Inches(2.7), Inches(0.25),
+         "KEY FINDINGS", size=10, color=EAP_ACCENT, bold=True)
+
+findings = [
+    ("Above 45\u00b0 line", f"{len(male_gt)} economies", "Male HCI+ exceeds Female"),
+    ("Below 45\u00b0 line", f"{len(female_gt)} economies", "Female HCI+ exceeds Male"),
+    ("Largest male\nadvantage", "Indonesia (+33.4)\nFiji (+31.2)", ""),
+    ("Largest female\nadvantage", "Cambodia (\u221222.2)\nThailand (\u221216.4)", ""),
+]
+
+fy = Inches(2.9)
+for title, value, sub in findings:
+    text_box(s7, Inches(10.1), fy, Inches(2.7), Inches(0.3),
+             title, size=9, color=MEDIUM_GRAY)
+    text_box(s7, Inches(10.1), fy + Inches(0.25), Inches(2.7), Inches(0.35),
+             value, size=10, color=DARK_TEXT, bold=True)
+    if sub:
+        text_box(s7, Inches(10.1), fy + Inches(0.55), Inches(2.7), Inches(0.2),
+                 sub, size=8, color=MEDIUM_GRAY)
+    fy += Inches(0.75)
+
+shape_rect(s7, Inches(10.1), fy, Inches(2.7), Pt(1), DIVIDER)
+fy += Inches(0.15)
+
+text_box(s7, Inches(10.1), fy, Inches(2.7), Inches(0.25),
+         "KEY INSIGHT", size=10, color=EAP_ACCENT, bold=True)
+text_box(s7, Inches(10.1), fy + Inches(0.3), Inches(2.7), Inches(1.5),
+         "Most EAP economies show higher male HCI+, "
+         "driven largely by employment gaps. However, "
+         "several countries \u2014 notably Cambodia, Thailand, "
+         "China, and Vietnam \u2014 show female advantage, "
+         "reflecting higher female education outcomes "
+         "and labor force participation in these economies.",
+         size=9, color=DARK_TEXT)
+
+add_footer(s7, 7)
 
 
 # ── Save ──────────────────────────────────────────────────────────────────────
