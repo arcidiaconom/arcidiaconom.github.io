@@ -41,7 +41,9 @@ ORANGE        = EMPLOY_CLR
 CORAL         = RGBColor(0xC0, 0x39, 0x2B)   # darker variant for "below avg"
 LIGHT_TEAL    = RGBColor(0xE0, 0xE8, 0xF0)   # light navy tint
 
-# ── Region Highlight Colors ─────────────────────────────────────────────────
+# ── Pastel colors for above/below world avg (ranking chart only) ─────────────
+PASTEL_ABOVE  = RGBColor(0x7E, 0xBD, 0xC2)   # soft teal
+PASTEL_BELOW  = RGBColor(0xE8, 0xA0, 0x9A)   # soft salmon
 EAP_ACCENT    = RGBColor(0x21, 0x71, 0xB5)   # EAP blue
 WORLD_CLR     = RGBColor(0x9E, 0x1B, 0x34)   # cranberry for World
 REGION_GRAY   = RGBColor(0x9E, 0x9E, 0x9E)   # gray for other regions
@@ -759,12 +761,12 @@ rplot.gap_width = 20
 
 series = rplot.series[0]
 series.format.fill.solid()
-series.format.fill.fore_color.rgb = EAP_ACCENT
+series.format.fill.fore_color.rgb = PASTEL_ABOVE
 
 # Color countries below world avg (188.5) differently — first 12
 for idx in range(12):  # Lao through Philippines
     series.points[idx].format.fill.solid()
-    series.points[idx].format.fill.fore_color.rgb = CORAL
+    series.points[idx].format.fill.fore_color.rgb = PASTEL_BELOW
 
 rc.category_axis.tick_labels.font.size = Pt(7)
 rc.category_axis.tick_labels.font.name = "Calibri"
@@ -780,10 +782,10 @@ series.data_labels.font.bold = True
 series.data_labels.number_format = '0.0'
 
 # Legend
-shape_rect(s3, Inches(0.8), Inches(6.3), Inches(0.25), Inches(0.12), EAP_ACCENT)
+shape_rect(s3, Inches(0.8), Inches(6.3), Inches(0.25), Inches(0.12), PASTEL_ABOVE)
 text_box(s3, Inches(1.15), Inches(6.25), Inches(1.8), Inches(0.2),
          "Above world avg (188.5)", size=9, color=DARK_TEXT)
-shape_rect(s3, Inches(3.2), Inches(6.3), Inches(0.25), Inches(0.12), CORAL)
+shape_rect(s3, Inches(3.2), Inches(6.3), Inches(0.25), Inches(0.12), PASTEL_BELOW)
 text_box(s3, Inches(3.55), Inches(6.25), Inches(1.5), Inches(0.2),
          "Below world avg", size=9, color=DARK_TEXT)
 
@@ -944,6 +946,21 @@ world_ns_x = Inches(7.1) + int(Inches(5.4) * 0.771)
 shape_rect(s4, world_ns_x, Inches(3.55), Pt(2), Inches(0.38), WORLD_CLR)
 text_box(s4, world_ns_x - Inches(0.3), Inches(3.9), Inches(1.2), Inches(0.2),
          "World", size=7, color=WORLD_CLR, align=PP_ALIGN.CENTER)
+
+# Insight panel
+insight4 = shape_rounded(s4, Inches(0.5), Inches(4.7), Inches(12.3), Inches(1.6), WHITE)
+shape_rect(s4, Inches(0.5), Inches(4.7), Pt(5), Inches(1.6), HEALTH_CLR)
+
+text_box(s4, Inches(0.8), Inches(4.8), Inches(4), Inches(0.25),
+         "KEY INSIGHT", size=10, color=HEALTH_CLR, bold=True)
+text_box(s4, Inches(0.8), Inches(5.05), Inches(11.5), Inches(1.1),
+         "EAP's health score of 42.8 ranks 3rd among regions, just above the "
+         "world average (42.6). Adult survival averages 85.3% \u2014 well above "
+         "the global mean (81.5%) \u2014 and stunting rates are low (13.4%). "
+         "Korea leads with 96.7% adult survival and 99.1% not-stunted. "
+         "Pacific Island nations and some ASEAN economies remain below regional "
+         "averages, presenting targeted opportunities for health investment.",
+         size=10, color=DARK_TEXT)
 
 add_footer(s4, 8)
 
