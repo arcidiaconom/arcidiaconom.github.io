@@ -234,7 +234,7 @@ text_box(s2, Inches(0.8), Inches(1.95), Inches(7), Inches(0.25),
 bubble_data = BubbleChartData()
 
 # Uniform bubble size for all countries
-BSIZE = 1
+BSIZE = 0.3
 
 # Series 1: Non-EAP countries (gray/transparent)
 non_eap_countries = [
@@ -318,8 +318,16 @@ bc.value_axis.has_title = True
 bc.value_axis.axis_title.text_frame.paragraphs[0].text = "HCI+ Score"
 bc.value_axis.axis_title.text_frame.paragraphs[0].font.size = Pt(10)
 bc.value_axis.axis_title.text_frame.paragraphs[0].font.name = "Calibri"
-bc.value_axis.minimum_scale = 80
-bc.value_axis.maximum_scale = 300
+bc.value_axis.minimum_scale = 60
+bc.value_axis.maximum_scale = 310
+
+# Reduce bubble scale to make bubbles much smaller
+from lxml import etree as _etree
+bubble_chart_el = bc.plots[0]._element
+bubble_scale_el = bubble_chart_el.find(qn('c:bubbleScale'))
+if bubble_scale_el is None:
+    bubble_scale_el = _etree.SubElement(bubble_chart_el, qn('c:bubbleScale'))
+bubble_scale_el.set('val', '15')
 bc.value_axis.major_gridlines.format.line.color.rgb = RGBColor(0xEE, 0xEE, 0xEE)
 bc.value_axis.tick_labels.font.size = Pt(9)
 
@@ -1267,6 +1275,145 @@ text_box(s7, Inches(10.1), fy + Inches(0.3), Inches(2.7), Inches(1.5),
          size=9, color=DARK_TEXT)
 
 add_footer(s7, 7)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GENERATE EAP CHOROPLETH MAP IMAGE
+# ══════════════════════════════════════════════════════════════════════════════
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import geopandas as gpd
+import numpy as np
+
+# HCI+ data for EAP countries (ISO A3 codes → HCI+ score)
+eap_hci_data = {
+    'JPN': 284.3, 'SGP': 282.4, 'KOR': 266.9, 'AUS': 270.0,
+    'NZL': 263.1, 'HKG': 258.4, 'MAC': 255.9, 'CHN': 219.8,
+    'VNM': 215.8, 'MNG': 209.5, 'BRN': 207.6, 'THA': 202.3,
+    'MYS': 201.3, 'FJI': 192.8, 'IDN': 175.4, 'PHL': 175.4,
+    'TON': 175.8, 'TUV': 166.1, 'KIR': 161.9, 'WSM': 164.4,
+    'MMR': 149.2, 'KHM': 138.9, 'LAO': 135.6, 'VUT': 136.4,
+    'MHL': 145.2, 'NRU': 161.6, 'PLW': 228.6,
+}
+
+# All EAP ISO codes (including those without data)
+eap_isos = set(eap_hci_data.keys()) | {'PRK', 'TLS', 'PNG', 'SLB', 'FSM'}
+
+def get_color_category(score):
+    if score is None:
+        return '#666666'  # NA - dark gray
+    elif score >= 250:
+        return '#6BAED6'  # Between 250 and 325 - blue
+    elif score >= 200:
+        return '#BDD7E7'  # Between 200 and 250 - light blue
+    elif score >= 150:
+        return '#FDD835'  # Between 150 and 200 - yellow
+    elif score >= 100:
+        return '#FFAB91'  # Between 100 and 150 - salmon/orange
+    else:
+        return '#E53935'  # Below 100 - red
+
+# Load world shapefile from pyogrio test fixtures
+world = gpd.read_file('/usr/local/lib/python3.11/dist-packages/pyogrio/tests/fixtures/naturalearth_lowres/naturalearth_lowres.shp')
+
+# Fix ISO codes for some countries
+world.loc[world['name'] == 'China', 'iso_a3'] = 'CHN'
+world.loc[world['name'] == 'France', 'iso_a3'] = 'FRA'
+world.loc[world['name'] == 'Norway', 'iso_a3'] = 'NOR'
+
+# Assign colors
+def assign_color(row):
+    iso = row['iso_a3']
+    if iso in eap_hci_data:
+        return get_color_category(eap_hci_data[iso])
+    elif iso in eap_isos:
+        return '#666666'  # EAP country without data
+    else:
+        return '#E8E8E8'  # Non-EAP (very light gray, not shown prominently)
+
+world['color'] = world.apply(assign_color, axis=1)
+
+# Create the map figure - focus on EAP region
+fig, ax = plt.subplots(1, 1, figsize=(16, 9), facecolor='#F0F0F0')
+ax.set_facecolor('#F0F0F0')
+
+# Plot all countries (non-EAP in very light gray for context)
+non_eap = world[~world['iso_a3'].isin(eap_isos)]
+non_eap.plot(ax=ax, color='#E0E0E0', edgecolor='white', linewidth=0.5)
+
+# Plot EAP countries with colors
+eap_world = world[world['iso_a3'].isin(eap_isos)]
+eap_world.plot(ax=ax, color=eap_world['color'], edgecolor='white', linewidth=0.8)
+
+# Focus on EAP region
+ax.set_xlim(60, 190)
+ax.set_ylim(-50, 55)
+ax.axis('off')
+
+# Title - two parts with different colors
+ax.set_title('', pad=20)  # clear default title
+fig.text(0.39, 0.94, 'HCI+ 2025 in ', fontsize=28, fontweight='bold',
+         color='#002B49', ha='right', va='center', fontfamily='sans-serif',
+         transform=fig.transFigure)
+fig.text(0.39, 0.94, '                    East Asia & Pacific', fontsize=28, fontweight='bold',
+         color='#006EAF', ha='left', va='center', fontfamily='sans-serif',
+         transform=fig.transFigure)
+
+# Add legend
+legend_elements = [
+    mpatches.Patch(facecolor='#6BAED6', edgecolor='white', label='Between 250 and 325'),
+    mpatches.Patch(facecolor='#BDD7E7', edgecolor='white', label='Between 200 and 250'),
+    mpatches.Patch(facecolor='#FDD835', edgecolor='white', label='Between 150 and 200'),
+    mpatches.Patch(facecolor='#FFAB91', edgecolor='white', label='Between 100 and 150'),
+    mpatches.Patch(facecolor='#E53935', edgecolor='white', label='Below 100'),
+    mpatches.Patch(facecolor='#666666', edgecolor='white', label='NA'),
+]
+
+legend = ax.legend(handles=legend_elements, loc='lower left', fontsize=11,
+                   title='The HCI+ 2025:', title_fontsize=12,
+                   frameon=True, facecolor='#F0F0F0', edgecolor='none',
+                   bbox_to_anchor=(0.01, 0.02))
+legend.get_title().set_fontweight('bold')
+
+# Bottom bar with branding
+fig.patches.append(plt.Rectangle((0, 0), 1, 0.04, transform=fig.transFigure,
+                                  facecolor='#E0E0E0', zorder=10))
+fig.text(0.95, 0.02, 'HCI+ 2025', fontsize=14, fontweight='bold',
+         color='#006EAF', ha='right', va='center', transform=fig.transFigure)
+
+# Accent line under title
+ax_pos = ax.get_position()
+fig.patches.append(plt.Rectangle((0.08, 0.88), 0.15, 0.004,
+                                  transform=fig.transFigure,
+                                  facecolor='#002B49', zorder=10))
+
+map_path = '/home/user/arcidiaconom.github.io/eap_hci_map.png'
+plt.savefig(map_path, dpi=200, bbox_inches='tight', facecolor='#F0F0F0',
+            edgecolor='none', pad_inches=0.2)
+plt.close()
+print(f"Map saved: {map_path}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SLIDE 9 — EAP CHOROPLETH MAP
+# ══════════════════════════════════════════════════════════════════════════════
+s8 = prs.slides.add_slide(prs.slide_layouts[6])
+shape_rect(s8, Inches(0), Inches(0), Inches(13.333), Inches(7.5), LIGHT_BG)
+
+shape_rect(s8, Inches(0), Inches(0), Inches(13.333), Inches(1.0), PRIMARY)
+text_box(s8, Inches(0.6), Inches(0.15), Inches(8), Inches(0.7),
+         "East Asia & Pacific  |  HCI+ Map", size=24, color=WHITE, bold=True,
+         font="Calibri Light", anchor=MSO_ANCHOR.MIDDLE)
+text_box(s8, Inches(9.5), Inches(0.15), Inches(3.5), Inches(0.7),
+         "2025", size=22, color=EAP_ACCENT, bold=True,
+         align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
+
+# Insert map image
+s8.shapes.add_picture(map_path, Inches(0.3), Inches(1.1), Inches(12.7), Inches(5.8))
+
+add_footer(s8, 8)
 
 
 # ── Save ──────────────────────────────────────────────────────────────────────
