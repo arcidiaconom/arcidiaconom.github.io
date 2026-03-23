@@ -269,7 +269,7 @@ text_box(s1, Inches(1.3), tag_y, Inches(2.2), Inches(0.32),
          "East Asia & Pacific", size=9, color=EAP_ORANGE, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 t2 = shape_rounded(s1, Inches(3.7), tag_y, Inches(2.2), Inches(0.32), RGBColor(0x00, 0x3A, 0x5C))
 text_box(s1, Inches(3.7), tag_y, Inches(2.2), Inches(0.32),
-         "Lower Middle Income", size=9, color=EAP_ORANGE, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+         "Upper Middle Income", size=9, color=EAP_ORANGE, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 
 # Right side — Score panel
 score_panel = shape_rounded(s1, Inches(8.8), Inches(1.5), Inches(3.8), Inches(5.0),
